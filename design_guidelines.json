@@ -1,0 +1,151 @@
+{
+  "app_name": "Prajeta",
+  "personality": "1 iOS-Native Clean",
+  "personality_one_liner": "A highly professional, premium, and trustworthy Indian service platform combining sleek iOS-native layouts with a stark, high-contrast operational palette.",
+  "color": {
+    "surface": "#FFFFFF",
+    "onSurface": "#171717",
+    "surfaceSecondary": "#F3F4F6",
+    "onSurfaceSecondary": "#292929",
+    "surfaceTertiary": "#E5E7EB",
+    "onSurfaceTertiary": "#6B7280",
+    "surfaceInverse": "#171717",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#E53935",
+    "brandPrimary": "#E53935",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#292929",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#FDE8E8",
+    "onBrandTertiary": "#E53935",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#E53935",
+    "onError": "#FFFFFF",
+    "border": "#E5E7EB",
+    "borderStrong": "#D1D5DB",
+    "divider": "#F3F4F6",
+    "muted": "#6B7280"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "variantFontFamily": "Space Grotesk",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Maintain iOS-native generous padding. Group related elements cleanly. Sticky CTAs at the bottom for bookings. Avoid clutter.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass on sticky headers, bottom tab bar, bottom sheets, and hero cards.",
+      "Overlay glass on map interfaces to maintain context."
+    ],
+    "dont's": [
+      "Avoid on form inputs, standard list rows, and ERP data tables.",
+      "Don't stack multiple glass layers."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Customer Home",
+      "purpose": "Allow users to quickly find a trusted driver and select a service type.",
+      "states": {
+        "loading": "Skeleton UI for service cards",
+        "empty": "No services available in this location",
+        "error": "Unable to load services, Retry button"
+      },
+      "layout": "Hero card at the top ('Find a Trusted Driver...') overlaid on the abstract background with gradient scrim. Below hero, a multi-column grid of Service Categories (Hourly, Full-Day, Night, Outstation, etc.) in tinted cards. Bottom sheet or sticky button for quick booking."
+    },
+    {
+      "name": "Booking Wizard",
+      "purpose": "Capture trip details, provide fare estimate, and take Razorpay advance.",
+      "states": {
+        "loading": "Calculating fare spinner...",
+        "empty": "N/A",
+        "error": "Payment failed or locations invalid"
+      },
+      "layout": "Location inputs at the top. Map in the center displaying route. Bottom sheet slides up displaying fare estimate (using Space Grotesk for numbers). Sticky 'Pay 20% Advance to Confirm' primary red CTA at the bottom."
+    },
+    {
+      "name": "Driver Dashboard & Trip Workflow",
+      "purpose": "Provide the driver with their current operational status and trip progression.",
+      "states": {
+        "loading": "Syncing status...",
+        "empty": "No active trips right now. Go online to receive jobs.",
+        "error": "Connection lost. Reconnect."
+      },
+      "layout": "Top sticky header with a massive 'Online/Offline' toggle. Main area uses chronological timeline cards (Depart -> Arrive -> OTP -> Start Trip -> Complete). High-contrast typography, large tap targets for driving safety. Job offers appear as high-priority bottom sheets."
+    },
+    {
+      "name": "ERP / Admin Dashboard",
+      "purpose": "Provide operations overview, KPIs, and dispatch management.",
+      "states": {
+        "loading": "Loading metrics...",
+        "empty": "No data for this time period",
+        "error": "Failed to fetch ERP data"
+      },
+      "layout": "Clean, high-density cards using surfaceSecondary. Grid of KPI summary cards at the top (Revenue, Active Drivers). Below, tabbed view for Tables (Dispatch, P&L, Support Tickets) with clear filtering options. No unnecessary animations."
+    }
+  ],
+  "images": {
+    "hero_background": {
+      "url": "https://images.unsplash.com/photo-1637625854255-d893202554f4?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMHdoaXRlJTIwZ3JheSUyMGFyY2hpdGVjdHVyYWwlMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc5MzEyNDI2MXww&ixlib=rb-4.1.0&q=85",
+      "alt": "abstract white background with vertical lines"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the user's provided color palette: Deep black (#171717), Charcoal (#292929), Mid-grey (#6B7280), Light-grey (#F3F4F6), White (#FFFFFF), and Brand red (#E53935).",
+    "Light theme only as explicitly requested. Do not implement a dark mode switch.",
+    "Typography: Use Plus Jakarta Sans for the primary text to enforce a premium, trustworthy look. Use Space Grotesk selectively for numerical data like fare estimates, P&L numbers, and OTP inputs.",
+    "For the Driver interface, prioritize high-contrast, large tap targets, and simple chronological timeline layouts over map aesthetics, as safety and clarity are paramount.",
+    "Use image_generation_tool to generate illustrative imagery for empty states (e.g., minimalist vector of a steering wheel or road) as the user explicitly instructed NOT to use real employee photos.",
+    "Ensure sticky CTAs are anchored at the bottom (e.g., 'Pay 20% Advance') with a subtle top shadow or glassmorphism effect.",
+    "Build the ERP/Admin screens with clean, structured tables and KPI cards. Optimize for scanning without clutter or unnecessary animations.",
+    "Implement the 3 distinct roles (Customer, Driver, Admin) with role-based navigation loops that use the same underlying design system."
+  ],
+  "haptics": {
+    "primary_button": "impactMedium",
+    "tab_change": "selection",
+    "driver_status_toggle": "impactHeavy",
+    "otp_success": "notificationSuccess",
+    "error": "notificationError"
+  }
+}

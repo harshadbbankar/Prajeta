@@ -1,0 +1,51 @@
+{
+  "summary": "First full test run of Prajeta (customer + driver + ERP in one Expo app). Backend: 21 pytest cases cover OTP auth (demo + preview/new user), public config/fare/enquiry/track, full lifecycle (booking -> PAYMENT_PENDING -> partial cash keeps it pending -> full advance cash -> AWAITING_ASSIGNMENT + trip_otp -> offer broadcast -> atomic accept -> arrive -> wrong/right OTP -> complete with cash -> PAID -> earnings/invoice), admin assign + status reason rule, quote flow (monthly -> QUOTED -> cash -> confirmed), driver onboarding with multipart upload + approval blocked until licence verified, RBAC, owner intelligence + actions CRUD, finance (refund/expenses/payouts), tariff_version bump, settings. All 21 passed after I fixed 2 backend crashes (500s on GET /api/admin/payouts and GET /api/invoices/{id}). /api/payments/create returns 503 as expected. Frontend (390x844): landing, login (demo + preview-code new driver), customer home, booking wizard with coupon -> booking detail with advance card + payments-not-configured notice, cancel, bookings tab, support ticket, track page, driver online toggle + offer accept + arrive/OTP/start/complete, ERP dashboard/dispatch/drivers/More and every /erp module all work. Found 2 backend logic bugs: cancelling a booking from ops does not withdraw open driver offers, and cash can be recorded on CANCELLED/QUOTE_REQUESTED bookings. No deprecated expo-av/barcode-scanner/background-fetch, but expo-router/unstable-native-tabs gives a deprecation warning.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/admin/payouts", "issue": "Returned 500. sum() was called on an async generator (TypeError: 'async_generator' object is not iterable). FIXED by me in admin_routes.py:602.", "priority": "HIGH"},
+      {"endpoint": "GET /api/invoices/{booking_id}", "issue": "Returned 500. \"\".join() was called on an async generator (TypeError: can only join an iterable). FIXED by me in server.py:540.", "priority": "HIGH"},
+      {"endpoint": "POST /api/admin/bookings/{id}/status (CANCELLED / NO_SHOW_CUSTOMER)", "issue": "Open booking_assignments (status OFFERED) are not withdrawn. Drivers keep seeing cancelled bookings in GET /api/driver/offers, and accepting one returns a misleading 409 'Another driver already accepted this booking'. Customer cancel withdraws offers correctly. GET /driver/offers also only checks driver_id, not booking status.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/admin/bookings/{id}/cash", "issue": "Returns 200 and records a 'balance' payment on CANCELLED bookings and on QUOTE_REQUESTED bookings (no quote or fare yet). It should reject with 400."},
+      {"endpoint": "POST /api/public/fare-estimate & POST /api/bookings", "issue": "No upper bound on hours (1000 hrs gives a fare of Rs 1,77,116). Negative hours are silently clamped. Add Pydantic ge/le validation."},
+      {"endpoint": "POST /api/auth/otp/send", "issue": "Preview mode returns dev_code in the API response to anyone for any number. Acceptable for preview only. It must be disabled, along with DEMO_PHONES/DEMO_OTP, before go-live. The rate limit (5 per 10 min) also applies to demo phones, so repeated logins during testing hit 429."},
+      {"endpoint": "GET /api/admin/bookings/{id}", "issue": "trip_otp is not exposed to ops, so support cannot help a customer who lost the OTP. May be intentional."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Driver offer card (monthly / quote services)", "issue": "Shows '0 hrs' for monthly bookings. Hide the duration or show the number of days for quote services.", "testID": "offer-{ref}", "priority": "low"}
+    ],
+    "integration_issues": [
+      {"flow": "Driver offers list", "issue": "Bookings cancelled by ops still show as offers with Accept/Decline buttons (backend bug above).", "affected_testIDs": ["accept-offer-{ref}", "decline-offer-{ref}"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "expo-router/unstable-native-tabs", "issue": "Console warning: '`expo-router/unstable-native-tabs` is deprecated. Use `expo-router/native-tabs` instead.' Reference: /app/frontend/src/components/RoleTabs.tsx:3"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_prajeta_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "In admin set_status (CANCELLED, NO_SHOW_CUSTOMER), withdraw OFFERED booking_assignments, like customer cancel does. Also filter GET /driver/offers to bookings whose status is AWAITING_ASSIGNMENT or ASSIGNED.",
+    "Reject POST /admin/bookings/{id}/cash for CANCELLED bookings and for QUOTE_REQUESTED bookings that have no fare yet.",
+    "Add bounds validation for hours/days in FareIn and BookingIn.",
+    "Migrate src/components/RoleTabs.tsx from 'expo-router/unstable-native-tabs' to 'expo-router/native-tabs'.",
+    "Driver offer card: do not show '0 hrs' for quote/monthly services.",
+    "Before go-live: clear DEMO_PHONES/DEMO_OTP and make sure dev_code is never returned once Twilio is configured.",
+    "admin_routes.py is 870 lines (over 700). Split it into modules (bookings, finance, owner, drivers)."
+  ],
+  "critical_code_review_comments": [
+    "Two async-generator misuse bugs (sum/join over 'async for' generator expressions) caused 500s. I fixed both by switching to list comprehensions. No other occurrences were found by grep.",
+    "Advance is rounded to the nearest rupee (e.g. 16496 -> 16500 paise). This is consistent and fine.",
+    "Accept is atomic (find_one_and_update with driver_id: None). A repeat accept returns 400 correctly.",
+    "Earlier backend log shows a KeyError: 'JWT_SECRET' crash on reload. It is resolved now, but JWT_SECRET must exist in the production env."
+  ],
+  "updated_files": ["/app/backend/server.py", "/app/backend/admin_routes.py", "/app/backend/tests/test_prajeta_api.py"],
+  "success_rate": {"backend": "100% (21/21) after 2 fixes; 2 additional logic bugs found via ad-hoc edge checks", "frontend": "~95% (all requested flows work; minor issues only)"},
+  "seed_data_creation": "Test bookings with pickup prefixed 'TEST_' (cancelled after the tests, except completed lifecycle ones). Also TEST_ enquiry, ticket, expense, payout (100 paise), refund (100 paise), owner action, and two new driver users (TEST_Drv approved in Pune, TEST_UI Driver in draft).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && EXPO_BACKEND_URL=https://fleetride-hub.preview.emergentagent.com python -m pytest tests/test_prajeta_api.py -n 0. The pytest.ini adds xdist, so use -n 0 because the fixtures are session-scoped. EXPO_BACKEND_URL is not in frontend/.env (only EXPO_PUBLIC_BACKEND_URL), so export it. The OTP rate limit is 5 sends per 10 min per phone, including demo phones. For UI tests, inject a token with localStorage.setItem('auth_token', JSON.stringify(token)). Tokens can be minted with core.make_token(user_id) (see /tmp/mint.py approach). The server date is Oct 2026. Pressable clicks with force=True sometimes don't register (coupon apply, terms checkbox), so use normal page.click.",
+  "rca_of_issue": "Offers after cancel: admin_routes.set_status updates the booking status but never calls booking_assignments.update_many(...WITHDRAWN). driver_routes.offers only skips bookings that already have a driver_id. accept_offer's atomic claim fails on the status filter and reports 'Another driver already accepted'. Reproduce: create a booking, record the advance as cash, assign a driver from admin, set status CANCELLED with a reason, then GET /api/driver/offers as that driver."
+}
