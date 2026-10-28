@@ -35,6 +35,7 @@ import { Appearance, StyleSheet, useColorScheme } from "react-native";
 
 export type ColorScheme = "light" | "dark";
 
+// Executive Chauffeur Platform tokens (DESIGN.md) — Inter / Round 8
 const light = {
   surface: "#FFFFFF",
   onSurface: "#171717",
@@ -45,25 +46,41 @@ const light = {
   surfaceInverse: "#171717",
   onSurfaceInverse: "#FFFFFF",
   muted: "#6B7280",
+  placeholder: "#9CA3AF",
   brand: "#E53935",
   onBrand: "#FFFFFF",
   brandPrimary: "#E53935",
+  brandPrimaryPressed: "#C62828",
   onBrandPrimary: "#FFFFFF",
   brandSecondary: "#292929",
   onBrandSecondary: "#FFFFFF",
   brandTertiary: "#FDE8E8",
   onBrandTertiary: "#E53935",
-  success: "#10B981",
+  success: "#059669",
   onSuccess: "#FFFFFF",
-  successSoft: "#E7F8F1",
-  warning: "#F59E0B",
+  successSoft: "#ECFDF5",
+  successText: "#047857",
+  successBorder: "#A7F3D0",
+  warning: "#D97706",
   onWarning: "#FFFFFF",
-  warningSoft: "#FEF3E2",
+  warningSoft: "#FFFBEB",
+  warningText: "#B45309",
+  warningBorder: "#FDE68A",
   error: "#E53935",
   onError: "#FFFFFF",
-  info: "#2563EB",
+  errorSoft: "#FEE2E2",
+  errorText: "#991B1B",
+  errorBorder: "#FCA5A5",
+  info: "#1E40AF",
   onInfo: "#FFFFFF",
-  infoSoft: "#E8EFFD",
+  infoSoft: "#DBEAFE",
+  infoBorder: "#93C5FD",
+  pendingSoft: "#FEF3C7",
+  pendingText: "#92400E",
+  pendingBorder: "#FCD34D",
+  violetSoft: "#F5F3FF",
+  violetText: "#6D28D9",
+  violetBorder: "#DDD6FE",
   border: "#E5E7EB",
   borderStrong: "#D1D5DB",
   divider: "#F3F4F6",
@@ -111,14 +128,15 @@ export function makeStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.Name
 
 
 export const fonts = {
-  regular: "PJS-Regular",
-  medium: "PJS-Medium",
-  semibold: "PJS-SemiBold",
-  bold: "PJS-Bold",
-  extrabold: "PJS-ExtraBold",
-  num: "SG-Medium",
-  numBold: "SG-Bold",
+  regular: "Inter-Regular",
+  medium: "Inter-Medium",
+  semibold: "Inter-SemiBold",
+  bold: "Inter-Bold",
+  extrabold: "Inter-ExtraBold",
+  num: "Inter-SemiBold",
+  numBold: "Inter-Bold",
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
-export const radius = { sm: 6, md: 12, lg: 20, pill: 999 };
+// Executive Chauffeur Platform: "Round 8"
+export const radius = { sm: 6, md: 8, lg: 8, pill: 999 };

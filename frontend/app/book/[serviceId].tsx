@@ -32,6 +32,8 @@ export default function BookWizard() {
   const [pickup, setPickup] = useState("");
   const [dest, setDest] = useState("");
   const [vehicle, setVehicle] = useState("Sedan");
+  const [vehicleId, setVehicleId] = useState("");
+  const garage = useQuery({ queryKey: ["garage"], queryFn: () => api<any>("/me/vehicles"), enabled: !!user && ["customer", "corporate"].includes(user.role) });
   const [trans, setTrans] = useState("Manual");
   const [notes, setNotes] = useState("");
   const [coupon, setCoupon] = useState("");
@@ -66,6 +68,8 @@ export default function BookWizard() {
   const now = new Date();
   const todaySel = date === nextDays(1)[0].iso;
   const slots = TIME_SLOTS.filter((t) => !todaySel || Number(t.slice(0, 2)) * 60 + Number(t.slice(3)) > now.getHours() * 60 + now.getMinutes() + 60);
+  // If the chosen slot has passed for today, fall back to the first available one (what the user sees selected)
+  const effTime = slots.includes(time) ? time : (slots[0] ?? time);
 
   const submit = async () => {
     setErr("");
@@ -75,7 +79,7 @@ export default function BookWizard() {
     setBusy(true);
     try {
       const b = await api<any>("/bookings", {
-        body: { service_id: service.id, city_id: cityId, pickup, destination: dest, date, time, hours: hrs, days, vehicle_type: vehicle, transmission: trans, notes, coupon: appliedCoupon || null, contact_name: name, idempotency_key: idem },
+        body: { service_id: service.id, city_id: cityId, pickup, destination: dest, date, time: effTime, hours: hrs, days, vehicle_type: vehicle, transmission: trans, vehicle_id: vehicleId || null, notes, coupon: appliedCoupon || null, contact_name: name, idempotency_key: idem },
       });
       toast(quote ? "Quote requested" : "Booking created — pay advance to confirm");
       router.replace(`/booking/${b.id}` as any);
@@ -107,7 +111,7 @@ export default function BookWizard() {
         <Block title="Start time">
           <ChipRow>
             {slots.map((t) => (
-              <Chip key={t} label={fmtTime(t)} selected={time === t} onPress={() => setTime(t)} testID={`book-time-${t}`} />
+              <Chip key={t} label={fmtTime(t)} selected={effTime === t} onPress={() => setTime(t)} testID={`book-time-${t}`} />
             ))}
           </ChipRow>
         </Block>
@@ -134,6 +138,25 @@ export default function BookWizard() {
           {needsDest ? <Field label="Destination" placeholder="Where are you going?" value={dest} onChangeText={setDest} testID="book-destination-input" /> : null}
         </View>
         <Block title="Your vehicle">
+          {(garage.data?.items ?? []).length ? (
+            <ChipRow>
+              {garage.data.items.map((g: any) => (
+                <Chip
+                  key={g.id}
+                  icon="car-sport"
+                  label={`${g.make} ${g.model} · ${g.reg_number}`}
+                  selected={vehicleId === g.id}
+                  onPress={() => {
+                    if (vehicleId === g.id) return setVehicleId("");
+                    setVehicleId(g.id);
+                    if (VEHICLES.includes(g.body_type)) setVehicle(g.body_type);
+                    setTrans(g.transmission === "Manual" ? "Manual" : "Automatic");
+                  }}
+                  testID={`book-garage-${g.reg_number}`}
+                />
+              ))}
+            </ChipRow>
+          ) : null}
           <ChipRow>
             {VEHICLES.map((v) => (
               <Chip key={v} label={v} selected={vehicle === v} onPress={() => setVehicle(v)} testID={`book-vehicle-${v}`} />

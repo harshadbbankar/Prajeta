@@ -253,7 +253,8 @@ async def confirm_booking(booking_id: str):
     b = await db.bookings.find_one_and_update(
         {"id": booking_id, "status": {"$in": ["PAYMENT_PENDING", "QUOTED"]}},
         {"$set": {"status": "AWAITING_ASSIGNMENT", "confirmed_at": now_iso(),
-                  "trip_otp": f"{secrets.randbelow(9000) + 1000}", "updated_at": now_iso()}},
+                  "trip_otp": f"{secrets.randbelow(9000) + 1000}", "end_otp": f"{secrets.randbelow(9000) + 1000}",
+                  "updated_at": now_iso()}},
         return_document=True, projection={"_id": 0})
     if not b:
         return

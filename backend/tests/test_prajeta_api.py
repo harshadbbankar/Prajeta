@@ -120,7 +120,8 @@ class TestLifecycle:
         assert requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/arrive", headers=d).json()["status"] == "DRIVER_ARRIVED"
         assert requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/start", json={"otp": "0000" if otp != "0000" else "1111"}, headers=d).status_code == 400
         assert requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/start", json={"otp": otp}, headers=d).json()["status"] == "IN_PROGRESS"
-        comp = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": True}, headers=d).json()
+        end_pin = requests.get(f"{BASE_URL}/bookings/{b['id']}", headers=c).json().get("end_otp", "")  # trip-end PIN (iter11)
+        comp = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": True, "end_pin": end_pin}, headers=d).json()
         assert comp["status"] == "COMPLETED"
         det = requests.get(f"{BASE_URL}/bookings/{b['id']}", headers=c).json()
         print("payment_status after complete:", det["payment_status"], det.get("balance_due"))

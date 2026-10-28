@@ -76,13 +76,11 @@ export default function RootLayout() {
     if (openSettings) Linking.openSettings();
   };
   const [loaded, err] = useFonts({
-    "PJS-Regular": require("../assets/fonts/PlusJakartaSans-400.ttf"),
-    "PJS-Medium": require("../assets/fonts/PlusJakartaSans-500.ttf"),
-    "PJS-SemiBold": require("../assets/fonts/PlusJakartaSans-600.ttf"),
-    "PJS-Bold": require("../assets/fonts/PlusJakartaSans-700.ttf"),
-    "PJS-ExtraBold": require("../assets/fonts/PlusJakartaSans-800.ttf"),
-    "SG-Medium": require("../assets/fonts/SpaceGrotesk-500.ttf"),
-    "SG-Bold": require("../assets/fonts/SpaceGrotesk-700.ttf"),
+    "Inter-Regular": require("../assets/fonts/Inter-400.ttf"),
+    "Inter-Medium": require("../assets/fonts/Inter-500.ttf"),
+    "Inter-SemiBold": require("../assets/fonts/Inter-600.ttf"),
+    "Inter-Bold": require("../assets/fonts/Inter-700.ttf"),
+    "Inter-ExtraBold": require("../assets/fonts/Inter-800.ttf"),
   });
 
   if (!loaded && !err) return null;

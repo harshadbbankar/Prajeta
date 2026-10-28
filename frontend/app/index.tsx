@@ -11,6 +11,7 @@ import { homeFor, useAuth } from "@/src/auth";
 import { fmtTime, nextDays, priceFrom, useConfig } from "@/src/hooks";
 import { fonts, radius, space, useTheme } from "@/src/theme";
 import { Btn, Card, Chip, ErrorView, Loader, Row, Txt } from "@/src/ui";
+import { RetainerCalculator } from "@/src/components/RetainerCalculator";
 
 const HERO = "https://images.unsplash.com/photo-1637625854255-d893202554f4?crop=entropy&cs=srgb&fm=jpg&q=70&w=1200";
 
@@ -224,6 +225,7 @@ export default function Landing() {
               <Btn small variant="outline" title="Monthly driver" testID="monthly-enquiry-button" onPress={() => router.push("/service/monthly")} />
             </Row>
           </Card>
+          <RetainerCalculator />
         </Section>
 
         <Section title="Where we operate">

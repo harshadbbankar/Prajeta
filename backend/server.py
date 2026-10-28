@@ -30,6 +30,7 @@ import tracking_routes
 import sos_routes
 import google_push_routes
 import wallet_routes
+import garage_routes
 import asyncio
 from licence import licence_loop
 
@@ -279,6 +280,7 @@ class BookingIn(BaseModel):
     notes: Optional[str] = ""
     coupon: Optional[str] = None
     contact_name: Optional[str] = None
+    vehicle_id: Optional[str] = None
     idempotency_key: str
 
 
@@ -286,6 +288,7 @@ def customer_view(b: dict) -> dict:
     b = dict(b)
     if b["status"] in ("PAYMENT_PENDING", "QUOTE_REQUESTED", "QUOTED", "CANCELLED"):
         b.pop("trip_otp", None)
+        b.pop("end_otp", None)
     return b
 
 
@@ -302,8 +305,11 @@ async def create_booking(body: BookingIn, user: dict = Depends(require_customer)
     if not body.pickup.strip():
         raise HTTPException(400, "Please enter the pickup address")
     s, c = await load_service_city(body.service_id, body.city_id)
-    if body.date < now().date().isoformat():
+    ist = now() + timedelta(hours=5, minutes=30)
+    if body.date < ist.date().isoformat():
         raise HTTPException(400, "Choose today or a future date")
+    if body.date == ist.date().isoformat() and body.time <= ist.strftime("%H:%M"):
+        raise HTTPException(400, "That time has already passed today — please pick a later slot")
     fare = await compute_fare(s, c, body.hours, body.days, body.time, body.coupon, user)
     quote = fare.get("quote_required")
     if fare.get("credit_used"):
@@ -315,6 +321,8 @@ async def create_booking(body: BookingIn, user: dict = Depends(require_customer)
     # Promo cost (referral discount + referral credit) is absorbed by Prajeta, not the driver
     promo = ((fare.get("referral") or {}).get("amount") or 0) + (fare.get("credit_used") or 0) if not quote else 0
     driver_payout = 0 if quote else int((fare["subtotal"] - fare["discount"] + promo) * settings.get("driver_share_percent", 70) / 100)
+    from garage_routes import vehicle_snapshot
+    vehicle = await vehicle_snapshot(user["id"], body.vehicle_id)
     if body.contact_name and not user.get("name"):
         await db.users.update_one({"id": user["id"]}, {"$set": {"name": body.contact_name}})
         user["name"] = body.contact_name
@@ -322,7 +330,9 @@ async def create_booking(body: BookingIn, user: dict = Depends(require_customer)
          "customer_phone": user["phone"], "service_id": s["id"], "service_name": s["name"], "city_id": c["id"],
          "city_name": c["name"], "pickup": body.pickup.strip(), "destination": (body.destination or "").strip(),
          "date": body.date, "time": body.time, "hours": fare.get("hours", body.hours), "days": body.days,
-         "vehicle_type": body.vehicle_type, "transmission": body.transmission, "notes": body.notes,
+         "vehicle_type": vehicle["body_type"] if vehicle else body.vehicle_type,
+         "transmission": vehicle["transmission"] if vehicle else body.transmission, "notes": body.notes,
+         "vehicle": vehicle, "billing": (await db.users.find_one({"id": user["id"]}, {"_id": 0, "billing": 1}) or {}).get("billing"),
          "fare": fare if not quote else {}, "quote_required": bool(quote), "driver_payout": driver_payout,
          "status": status, "payment_status": "PENDING", "amount_paid": 0,
          "balance_due": 0 if quote else fare["total"], "driver_id": None, "offered_driver_id": None,
@@ -605,13 +615,33 @@ async def invoice_html(b: dict, s: dict) -> str:
                        f"{' · ' + esc(p['razorpay_payment_id']) if p.get('razorpay_payment_id') else ''}</small></td>"
                        f"<td class=r>{rupees(p['amount'])}</td></tr>" for p in pays) or "<tr><td>No payments yet</td><td></td></tr>"
     title = f"Tax Invoice {b['invoice_number']}" if b.get("invoice_number") else "Payment Receipt"
+    bill = b.get("billing") or {}
+    rate = f.get("tax_rate", 18)
+    tax_rows = f"<tr><td>GST ({rate}%)</td><td class=r>{rupees(f.get('tax', 0))}</td></tr>"
+    bill_to = ""
+    if bill.get("gstin"):
+        sup_state = (s.get("gstin") or "")[:2]
+        intra = not sup_state or sup_state == bill["gstin"][:2]
+        tax = f.get("tax", 0)
+        if intra:
+            half = tax // 2
+            tax_rows = (f"<tr><td>CGST ({rate / 2:g}%)</td><td class=r id=cgst>{rupees(half)}</td></tr>"
+                        f"<tr><td>SGST ({rate / 2:g}%)</td><td class=r id=sgst>{rupees(tax - half)}</td></tr>")
+        else:
+            tax_rows = f"<tr><td>IGST ({rate}%)</td><td class=r id=igst>{rupees(tax)}</td></tr>"
+        taxable = f.get("subtotal", 0) - f.get("discount", 0)
+        tax_rows = f"<tr><td>Taxable value · SAC 998519</td><td class=r id=taxable>{rupees(taxable)}</td></tr>" + tax_rows
+        bill_to = (f"<h3>Bill to</h3><table><tr><td>{esc(bill.get('company_name'))}<br><small>{esc(bill.get('address'))}</small></td>"
+                   f"<td class=r>GSTIN <b id=customer-gstin>{esc(bill['gstin'])}</b><br><small>Place of supply: state {esc(bill['gstin'][:2])}</small></td></tr></table>")
+    veh = b.get("vehicle") or {}
+    veh_row = f"<tr><td>Vehicle</td><td class=r>{esc(veh.get('make'))} {esc(veh.get('model'))} · {esc(veh.get('reg_number'))}</td></tr>" if veh else ""
     stamp = ("PAID IN FULL", "#16A34A") if total and due <= 0 else ("ADVANCE PAID", "#D97706") if adv_paid else ("UNPAID", "#E53935")
     when = f"{b['date']} {b['time']}"
     return f"""<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>{esc(title)} · {esc(b['ref'])}</title><style>
-body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#171717;max-width:680px;margin:0 auto;padding:24px;font-size:14px}}
+body{{font-family:Inter,-apple-system,Segoe UI,Roboto,sans-serif;color:#171717;max-width:680px;margin:0 auto;padding:24px;font-size:14px}}
 table{{width:100%;border-collapse:collapse}}td{{padding:8px 0;border-bottom:1px solid #E5E7EB;vertical-align:top}}.r{{text-align:right;white-space:nowrap}}
-h1{{color:#E53935;margin:0;font-size:26px}}h2{{margin:20px 0 4px;font-size:18px}}h3{{margin:20px 0 6px;font-size:15px}}small{{color:#6B7280}}
+h1{{color:#171717;margin:0;font-size:26px}}h2{{margin:20px 0 4px;font-size:18px}}h3{{margin:20px 0 6px;font-size:15px}}small{{color:#6B7280}}
 .top{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}}.muted{{color:#6B7280}}
 .stamp{{border:2px solid {stamp[1]};color:{stamp[1]};font-weight:800;padding:6px 10px;border-radius:6px;letter-spacing:1px;font-size:12px}}
 .box{{background:#F5F5F5;border-radius:10px;padding:12px 16px;margin-top:12px}}.box tr:last-child td{{border:0}}
@@ -623,8 +653,8 @@ h1{{color:#E53935;margin:0;font-size:26px}}h2{{margin:20px 0 4px;font-size:18px}
 <table style="margin-top:12px"><tr><td>Booking</td><td class=r><b>{esc(b['ref'])}</b></td></tr>
 <tr><td>Service</td><td class=r>{esc(b['service_name'])}</td></tr><tr><td>Date &amp; time</td><td class=r>{esc(when)}</td></tr>
 <tr><td>City</td><td class=r>{esc(b.get('city_name') or b.get('city_id'))}</td></tr>
-<tr><td>Customer</td><td class=r>{esc(b.get('customer_name'))}<br><small>{esc(b['customer_phone'])}</small></td></tr></table>
-<h3>Fare</h3><table>{rows}<tr><td>GST ({f.get('tax_rate', 18)}%)</td><td class=r>{rupees(f.get('tax', 0))}</td></tr>
+<tr><td>Customer</td><td class=r>{esc(b.get('customer_name'))}<br><small>{esc(b['customer_phone'])}</small></td></tr>{veh_row}</table>
+{bill_to}<h3>Fare</h3><table>{rows}{tax_rows}
 <tr class=big><td>Total</td><td class=r>{rupees(total)}</td></tr></table>
 <div class=box><table>
 <tr><td>Booking advance ({f.get('advance_percent', 20)}%)</td><td class=r id=advance-due>{rupees(adv)}</td></tr>
@@ -725,6 +755,7 @@ app.include_router(tracking_routes.router)
 app.include_router(sos_routes.router)
 app.include_router(google_push_routes.router)
 app.include_router(wallet_routes.router)
+app.include_router(garage_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

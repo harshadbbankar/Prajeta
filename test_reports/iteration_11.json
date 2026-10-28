@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 11 tested the design-system restyle (regression) plus 4 new features: customer vehicle garage, GST billing invoices, trip-end PIN handover and the corporate retainer calculator. New backend suite tests/test_garage_gst_endpin.py: 15/15 passed. Garage checks: reg-number normalisation, validation, BH series, 10-vehicle cap, 409 on duplicates, 403/404 role guards, booking vehicle snapshot, 400 on a bogus vehicle_id. Billing checks: GSTIN regex, company name required, clearing the profile. Invoice checks: CGST+SGST when the supplier GSTIN is empty or in the same state, IGST across states, a single GST row when there is no billing. PIN checks: end_otp hidden before confirmation and from ERP detail/list, driver offers and driver job; wrong PIN returns 400; legacy bookings without a PIN still complete. Full regression run: 211 passed, 4 failed. The new PIN requirement broke the complete() calls in 7 older test files; I updated them to send end_pin. The 4 remaining failures come from leftover state in the preview DB, not from new code: the demo driver's legacy IN_PROGRESS booking PRJ-8C3XBV45 (29 Oct, Bandra) causes 'Driver has a conflicting assignment' for bookings made for TOMORROW. Frontend (390x844): retainer calculator default saving ₹17,692, recalculates on input, enquiry button opens /enquiry?type=corporate. Customer login → Profile garage add/remove and GST save/invalid/remove all work. Booking with the book-garage-MH02UI4321 chip selects MUV/Manual and saves the vehicle+billing snapshot. Customer end-pin-card shows only while IN_PROGRESS. Driver complete sheet hides the buttons until 4 digits; wrong PIN is rejected and the correct PIN completes the trip. Owner ERP tabs (Dashboard, Dispatch, Drivers, More), finance, owner, settings and booking detail render with Inter fonts and no page errors. Design tokens verified: cards white with 8px radius and #E5E7EB border, inputs 52px white with border, selected chips #171717, status badges uppercase and bordered, book CTA red. No deprecated packages (expo-av, expo-barcode-scanner, expo-background-fetch) and no react-native SafeAreaView found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/bookings", "issue": "Pre-existing: only the date is validated, not the time. A same-day booking with a start time already in the past is accepted (made today at 10:00 while server time was ~19:24 IST). Combined with the frontend default below, real customers can create past-time bookings."},
+      {"endpoint": "GET /api/bookings/{id}", "issue": "end_otp is returned from CONFIRMED/ASSIGNED onwards; the UI only shows it while IN_PROGRESS. Acceptable because the requester is the owning customer, but you could also hide it server-side until IN_PROGRESS."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Book screen time picker", "issue": "Pre-existing: time state defaults to '10:00' (app/book/[serviceId].tsx:29). When Today is selected and 10:00 has passed, that slot is filtered out (line 70), so no time chip looks selected, but the submit still sends 10:00. Reset time to the first available slot when the slots change.", "testID": "book-time-*", "priority": "MEDIUM"},
+      {"component": "Driver complete-trip sheet error toast", "issue": "The 'Wrong handover PIN' toast renders under the Sheet modal scrim, so it appears dimmed or greyed behind the overlay (app/trip/[id].tsx:49 toast while Sheet open). Show the error inline in the sheet or raise the toast z-index above the Modal.", "testID": "trip-end-pin-input", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Garage vehicle shown to driver/customer", "issue": "The backend returns booking.vehicle (make, model, reg) on GET /api/driver/jobs/{id} and on the customer booking, but the trip screen (app/trip/[id].tsx:111), customer booking detail (app/booking/[id].tsx:206) and ERP booking detail only show 'vehicle_type · transmission'. The driver never sees the reg number or car model to identify the car. The invoice does show it.", "affected_testIDs": ["trip-status-badge", "booking-status-badge"]}
+    ],
+    "design_issues": [
+      {"screen": "Website home retainer calculator", "issues": ["The 'Request corporate proposal' CTA is dark (#171717) rather than the red primary CTA", "The enquiry form does not carry over the driver count from the calculator", "The city chips row on the enquiry form is clipped at the right edge (Mumbai cut off) without a scroll affordance"]},
+      {"screen": "Garage", "issues": ["garage-remove deletes instantly with no confirmation", "autoCapitalize has no effect on web, so the reg input shows lowercase until saved (backend normalises it)"]},
+      {"screen": "ERP dashboard", "issues": ["The Collections KPI value is in red #E53935, which reads as negative; DESIGN.md reserves red for CTAs/SOS", "More-menu rows use a grey surface instead of white cards with border"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_garage_gst_endpin.py", "/app/backend/tests/setup_ui_iter11.py", "/app/test_reports/pytest/pytest_iter11.xml", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Show booking.vehicle (make model · REG) on the driver trip screen, customer booking detail and ERP booking detail",
+    "Make the wrong-PIN error visible inside the complete-trip sheet (inline error, or toast above the Modal)",
+    "Book screen: when the selected time is not in the available slots, auto-select the first slot; backend: reject a same-day start time in the past (pre-existing)",
+    "Optional: confirm before removing a garage vehicle; make the retainer CTA the red primary button; pass the driver count to /enquiry",
+    "Preview DB: the demo driver has a legacy IN_PROGRESS booking PRJ-8C3XBV45 (29 Oct) and an ACCEPTED one PRJ-3YB57793 (2030), which cause 'conflicting assignment' in 4 regression tests for TOMORROW bookings. Complete or cancel them if they are not needed for demo."
+  ],
+  "critical_code_review_comments": [
+    "No end_otp/trip_otp leaks found: ERP list/detail use projections, customer/driver detail and public track/live use whitelists, and CSV export uses fixed columns",
+    "The invoice GST split is correct: half = tax // 2 and SGST = remainder, so the totals always reconcile",
+    "vehicle_snapshot is imported inside create_booking (a local import, probably to avoid a circular import); works, but move it to module level if possible",
+    "The book screen maps DCT/EV transmissions to the 'Automatic' chip, while the backend overrides with the garage transmission (DCT/EV). The UI and the stored booking can differ slightly, which is acceptable"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_garage_gst_endpin.py (new)",
+    "/app/backend/tests/setup_ui_iter11.py (new)",
+    "/app/backend/tests/test_prajeta_api.py, test_tracking_ratings_invoice.py, test_contacts_wallet_bonus.py, test_referral_leaderboard.py, test_referral_payout_statement.py, test_share_badges_livemap.py, setup_ui_iter4.py: complete() calls now send end_pin"
+  ],
+  "success_rate": {"backend": "100% of new feature tests (15/15); full regression 211/215 (4 failures from DB-state driver conflicts, not code)", "frontend": "~95% (all tested flows work; 2 UX bugs + vehicle display gap)"},
+  "seed_data_creation": "None kept. TEST_ garage vehicles and Ananya's billing removed, settings.gstin unset, and orphaned payments/assignments/events of deleted test bookings cleaned up. UI test booking PRJ-QZXYCZ8H (pickup 'TEST_ UI Worli', COMPLETED, vehicle and billing snapshot) left as evidence.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests with EXPO_BACKEND_URL=<EXPO_PUBLIC_BACKEND_URL> and -n 0. Driver complete now requires end_pin = customer GET /api/bookings/{id}.end_otp. The demo driver serves Mumbai only and the book screen defaults to Bengaluru, so pick book-city-mumbai for full-trip UI tests. `python tests/setup_ui_iter11.py <booking_id> [arrived|progress]` advances a booking (cash → assign → accept → arrive → start). Supplier GSTIN lives in system_settings.gstin (no ERP UI for it); set it in Mongo to test IGST. The complete sheet animates in: wait ~1s or use dispatch_event('click') on its buttons.",
+  "rca_of_issue": "Regression failures after the PIN feature: driver_routes.complete now enforces end_pin when booking.end_otp is set (confirm_booking sets end_otp for all new bookings). The older test helpers called complete without end_pin, got 400, and left bookings IN_PROGRESS, which then triggered cascading 'conflicting assignment' errors. Fixed in the test files. The product behaviour is correct."
+}

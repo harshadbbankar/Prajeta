@@ -142,7 +142,8 @@ class TestTracking:
 
     def test_complete_then_inactive(self, toks, trip):
         bid = trip["b"]["id"]
-        comp = requests.post(f"{BASE_URL}/driver/jobs/{bid}/complete", json={"cash_collected": False}, headers=H(toks["driver"]))
+        end_pin = requests.get(f"{BASE_URL}/bookings/{bid}", headers=H(toks["customer"])).json().get("end_otp", "")  # trip-end PIN (iter11)
+        comp = requests.post(f"{BASE_URL}/driver/jobs/{bid}/complete", json={"cash_collected": False, "end_pin": end_pin}, headers=H(toks["driver"]))
         assert comp.json()["status"] == "COMPLETED", comp.text
         t = requests.get(f"{BASE_URL}/bookings/{bid}/tracking", headers=H(toks["customer"])).json()
         assert t["active"] is False and t["status"] == "COMPLETED"

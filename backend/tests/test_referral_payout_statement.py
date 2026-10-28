@@ -91,7 +91,7 @@ def drive_to_complete(toks, b):
     assert requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/arrive", json={}, headers=d).status_code == 200
     otp = mdb.bookings.find_one({"id": b["id"]})["trip_otp"]
     assert requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/start", json={"otp": otp}, headers=d).status_code == 200
-    r = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": False}, headers=d)
+    r = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": False, "end_pin": (__import__("pymongo").MongoClient(__import__("dotenv").dotenv_values("/app/backend/.env")["MONGO_URL"])[__import__("dotenv").dotenv_values("/app/backend/.env")["DB_NAME"]].bookings.find_one({"id": b['id']}) or {}).get("end_otp", "")}, headers=d)
     assert r.status_code == 200, r.text
     return uid
 

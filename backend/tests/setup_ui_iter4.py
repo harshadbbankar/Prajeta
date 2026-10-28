@@ -12,7 +12,7 @@ b = to_accepted(t, new_booking(t, pickup="TEST_ UI Nariman Point"))
 requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/arrive", headers=d)
 otp = requests.get(f"{BASE_URL}/bookings/{b['id']}", headers=c).json()["trip_otp"]
 requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/start", json={"otp": otp}, headers=d)
-print("complete:", requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": True}, headers=d).json()["status"])
+print("complete:", requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": True, "end_pin": (__import__("pymongo").MongoClient(__import__("dotenv").dotenv_values("/app/backend/.env")["MONGO_URL"])[__import__("dotenv").dotenv_values("/app/backend/.env")["DB_NAME"]].bookings.find_one({"id": b['id']}) or {}).get("end_otp", "")}, headers=d).json()["status"])
 print("COMPLETED_ID", b["id"])
 acc = "6acad2db-c249-4ce9-a6ef-9cc17a9a9799"
 print("ACCEPTED status:", requests.get(f"{BASE_URL}/bookings/{acc}", headers=c).json()["status"])

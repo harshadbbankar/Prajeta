@@ -76,7 +76,7 @@ def run_to_complete(toks, b):
     otp = mdb.bookings.find_one({"id": b["id"]})["trip_otp"]
     r = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/start", json={"otp": otp}, headers=d)
     assert r.status_code == 200, r.text
-    r = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": False}, headers=d)
+    r = requests.post(f"{BASE_URL}/driver/jobs/{b['id']}/complete", json={"cash_collected": False, "end_pin": (__import__("pymongo").MongoClient(__import__("dotenv").dotenv_values("/app/backend/.env")["MONGO_URL"])[__import__("dotenv").dotenv_values("/app/backend/.env")["DB_NAME"]].bookings.find_one({"id": b['id']}) or {}).get("end_otp", "")}, headers=d)
     assert r.status_code == 200, r.text
     return mdb.bookings.find_one({"id": b["id"]}, {"_id": 0})
 

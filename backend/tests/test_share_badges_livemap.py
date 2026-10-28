@@ -136,7 +136,7 @@ class TestShare:
         assert requests.post(f"{BASE_URL}/driver/jobs/{bid}/arrive", headers=d).status_code == 200
         otp = mdb.bookings.find_one({"id": bid})["trip_otp"]
         assert requests.post(f"{BASE_URL}/driver/jobs/{bid}/start", json={"otp": otp}, headers=d).status_code == 200
-        assert requests.post(f"{BASE_URL}/driver/jobs/{bid}/complete", json={"cash_collected": False}, headers=d).status_code == 200
+        assert requests.post(f"{BASE_URL}/driver/jobs/{bid}/complete", json={"cash_collected": False, "end_pin": (__import__("pymongo").MongoClient(__import__("dotenv").dotenv_values("/app/backend/.env")["MONGO_URL"])[__import__("dotenv").dotenv_values("/app/backend/.env")["DB_NAME"]].bookings.find_one({"id": bid}) or {}).get("end_otp", "")}, headers=d).status_code == 200
         p = requests.get(f"{BASE_URL}/public/live/{tok}").json()
         assert p["ended"] is True and p["status"] == "COMPLETED" and "driver_info" not in p
         # sharing a completed trip -> 400

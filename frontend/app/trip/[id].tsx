@@ -29,6 +29,8 @@ export default function Trip() {
   const [otp, setOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<"" | "event" | "complete">("");
+  const [endPin, setEndPin] = useState("");
+  const [sheetErr, setSheetErr] = useState("");
   const [evType, setEvType] = useState("DELAY");
   const [note, setNote] = useState("");
   const j = q.data;
@@ -45,6 +47,7 @@ export default function Trip() {
       setOtp("");
       q.refetch();
     } catch (e: any) {
+      if (sheet) setSheetErr(e.message);
       toast(e.message, "err");
     } finally {
       setBusy(false);
@@ -107,7 +110,7 @@ export default function Trip() {
           <KV k="Duration" v={j.service_id === "outstation" ? `${j.days} day(s)` : `${j.hours} hrs`} />
           {j.pickup ? <KV k="Pickup" v={j.pickup} /> : null}
           {j.destination ? <KV k="Destination" v={j.destination} /> : null}
-          <KV k="Vehicle" v={`${j.vehicle_type} · ${j.transmission}`} />
+          <KV k="Vehicle" v={j.vehicle ? `${j.vehicle.make} ${j.vehicle.model} · ${j.vehicle.reg_number} · ${j.transmission}` : `${j.vehicle_type} · ${j.transmission}`} testID="trip-vehicle" />
           {j.notes ? <KV k="Instructions" v={j.notes} /> : null}
           {j.customer_name ? <KV k="Customer" v={j.customer_name} /> : null}
           <KV k="Your payout" v={money(j.driver_payout)} bold />
@@ -144,13 +147,30 @@ export default function Trip() {
           <View style={{ backgroundColor: colors.surfaceSecondary, borderRadius: radius.md, padding: space.md }}>
             <KV k="Customer balance due" v={money(j.balance_due)} bold />
           </View>
-          {j.balance_due ? (
+          {j.end_pin_required ? (
+            <Field
+              label="Handover PIN from customer"
+              placeholder="4-digit PIN"
+              keyboardType="number-pad"
+              maxLength={4}
+              value={endPin}
+              onChangeText={(t) => {
+                setSheetErr("");
+                setEndPin(t.replace(/\D/g, ""));
+              }}
+              error={sheetErr || undefined}
+              testID="trip-end-pin-input"
+            />
+          ) : null}
+          {j.end_pin_required && endPin.length !== 4 ? (
+            <Txt v="caption">Return the car and keys, then ask the customer for the trip-end PIN in their app.</Txt>
+          ) : j.balance_due ? (
             <>
-              <Btn title={`Collected ${money(j.balance_due)} in cash`} icon="cash" variant="dark" loading={busy} onPress={() => act("complete", { cash_collected: true }, "Trip completed · cash recorded")} testID="trip-complete-cash-button" />
-              <Btn title="Customer will pay online" variant="outline" loading={busy} onPress={() => act("complete", { cash_collected: false }, "Trip completed")} testID="trip-complete-online-button" />
+              <Btn title={`Collected ${money(j.balance_due)} in cash`} icon="cash" variant="dark" loading={busy} onPress={() => act("complete", { cash_collected: true, end_pin: endPin }, "Trip completed · cash recorded")} testID="trip-complete-cash-button" />
+              <Btn title="Customer will pay online" variant="outline" loading={busy} onPress={() => act("complete", { cash_collected: false, end_pin: endPin }, "Trip completed")} testID="trip-complete-online-button" />
             </>
           ) : (
-            <Btn title="Confirm completion" variant="success" loading={busy} onPress={() => act("complete", { cash_collected: false }, "Trip completed")} testID="trip-complete-confirm-button" />
+            <Btn title="Confirm completion" variant="success" loading={busy} onPress={() => act("complete", { cash_collected: false, end_pin: endPin }, "Trip completed")} testID="trip-complete-confirm-button" />
           )}
         </View>
       </Sheet>

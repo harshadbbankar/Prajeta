@@ -237,7 +237,7 @@ async def my_job(booking_id: str, user: dict) -> dict:
 async def job_detail(booking_id: str, user: dict = Depends(require_driver)):
     b = await my_job(booking_id, user)
     events = [clean(e) async for e in db.trip_events.find({"booking_id": booking_id}, {"_id": 0}).sort("created_at", 1)]
-    return {**(await booking_brief(b, full=True)), "events": events}
+    return {**(await booking_brief(b, full=True)), "events": events, "vehicle": b.get("vehicle"), "end_pin_required": bool(b.get("end_otp"))}
 
 
 async def transition(booking_id: str, user: dict, frm: list, to: str, extra: dict = None, event: str = None):
@@ -276,10 +276,14 @@ async def start(booking_id: str, body: OtpIn, user: dict = Depends(require_drive
 
 class CompleteIn(BaseModel):
     cash_collected: bool = False
+    end_pin: str = ""
 
 
 @router.post("/jobs/{booking_id}/complete")
 async def complete(booking_id: str, body: CompleteIn, user: dict = Depends(require_driver)):
+    cur = await my_job(booking_id, user)
+    if cur.get("end_otp") and body.end_pin.strip() != cur["end_otp"]:
+        raise HTTPException(400, "Wrong handover PIN. Ask the customer for the trip-end PIN shown in their app.")
     b = await transition(booking_id, user, ["IN_PROGRESS"], "COMPLETED", {"completed_at": now_iso()}, "TRIP_COMPLETED")
     s = await get_settings()
     prof = await db.driver_profiles.find_one({"user_id": user["id"]}, {"_id": 0, "badge": 1})

@@ -298,7 +298,7 @@ async def bookings(status: str = "", q: str = "", city_id: str = "", service_id:
     if q:
         query["$or"] = [{"ref": {"$regex": q, "$options": "i"}}, {"customer_name": {"$regex": q, "$options": "i"}},
                         {"customer_phone": {"$regex": q}}, {"driver_name": {"$regex": q, "$options": "i"}}]
-    return [b async for b in db.bookings.find(query, {"_id": 0, "trip_otp": 0}).sort("created_at", -1).limit(300)]
+    return [b async for b in db.bookings.find(query, {"_id": 0, "trip_otp": 0, "end_otp": 0}).sort("created_at", -1).limit(300)]
 
 
 @router.get("/bookings/export.csv")
@@ -317,7 +317,7 @@ async def export_bookings(user: dict = Depends(OWNER)):
 
 @router.get("/bookings/{bid}")
 async def booking_detail(bid: str, user: dict = Depends(SUPPORT)):
-    b = await db.bookings.find_one({"id": bid}, {"_id": 0, "trip_otp": 0})
+    b = await db.bookings.find_one({"id": bid}, {"_id": 0, "trip_otp": 0, "end_otp": 0})
     if not b:
         raise HTTPException(404, "Booking not found")
     events = [clean(e) async for e in db.trip_events.find({"booking_id": bid}, {"_id": 0}).sort("created_at", 1)]

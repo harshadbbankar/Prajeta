@@ -78,7 +78,7 @@ export default function AdminBooking() {
           <KV k="Pickup" v={b.pickup} />
           {b.destination ? <KV k="Destination" v={b.destination} /> : null}
           <KV k="Duration" v={b.service_id === "outstation" ? `${b.days} day(s)` : `${b.hours} hrs`} />
-          <KV k="Vehicle" v={`${b.vehicle_type} · ${b.transmission}`} />
+          <KV k="Vehicle" v={b.vehicle ? `${b.vehicle.make} ${b.vehicle.model} · ${b.vehicle.reg_number} · ${b.transmission}` : `${b.vehicle_type} · ${b.transmission}`} testID="erp-booking-vehicle" />
           {b.notes ? <KV k="Notes" v={b.notes} /> : null}
           <KV k="Driver" v={b.driver_name ?? "—"} />
           {b.cancel_reason ? <KV k="Cancel reason" v={b.cancel_reason} /> : null}

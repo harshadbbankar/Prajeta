@@ -20,6 +20,13 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 11 (2026-06) — Executive Chauffeur Platform v2.4 restyle
+- Design tokens from user DESIGN.md: Inter font, #171717 primary dark, #E53935 accent (CTAs/SOS), #F3F4F6 canvas, #E5E7EB borders, radius 8, 52px buttons/inputs, 38px chips (selected dark), bordered status badges (pending/confirmed/completed/cancelled tokens). Workflows unchanged.
+- Customer garage (/api/me/vehicles, profile card, pick in booking → booking.vehicle snapshot; driver job shows vehicle).
+- GST billing profile (/api/me/billing, GSTIN validated) → snapshot on booking; invoice shows Bill-to GSTIN, taxable value, CGST+SGST (same state as company GSTIN or no company GSTIN) else IGST.
+- Trip-end handover PIN: end_otp generated at confirmation, shown to customer while IN_PROGRESS, driver must enter it to complete (older bookings without end_otp unaffected).
+- Website corporate retainer calculator (in-house vs ₹27,000/driver indicative retainer, GST ITC) → corporate enquiry.
+
 ## Iteration 10 (2026-06)
 - ERP Referral leaderboard (/erp/referrals, More → Referral leaderboard; owner/finance in menu, ops read-only via API): top referrers by completed friends, revenue, credit; recent referred bookings; Say thanks on WhatsApp; Give thank-you credit (owner/finance, audit + notification).
 - Android push google-services.json still not provided (user skipped twice).

@@ -288,9 +288,9 @@ async def statement(month: str, user: dict = Depends(require_driver)):
     title = f"Earnings statement · {first.strftime('%B %Y')}"
     return HTMLResponse(f"""<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>{esc(title)}</title><style>
-body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#171717;max-width:760px;margin:0 auto;padding:24px;font-size:13px}}
+body{{font-family:Inter,-apple-system,Segoe UI,Roboto,sans-serif;color:#171717;max-width:760px;margin:0 auto;padding:24px;font-size:13px}}
 table{{width:100%;border-collapse:collapse}}td,th{{padding:7px 4px;border-bottom:1px solid #E5E7EB;vertical-align:top;text-align:left}}.r{{text-align:right;white-space:nowrap}}
-th{{font-size:11px;color:#6B7280;text-transform:uppercase}}h1{{color:#E53935;margin:0;font-size:24px}}h2{{margin:18px 0 4px;font-size:17px}}h3{{margin:18px 0 6px;font-size:14px}}
+th{{font-size:11px;color:#6B7280;text-transform:uppercase}}h1{{color:#171717;margin:0;font-size:24px}}h2{{margin:18px 0 4px;font-size:17px}}h3{{margin:18px 0 6px;font-size:14px}}
 small,.muted{{color:#6B7280}}.box{{background:#F5F5F5;border-radius:10px;padding:10px 14px;margin-top:12px}}.box tr:last-child td{{border:0}}.big td{{font-size:15px;font-weight:800}}
 button{{margin-top:18px;background:#E53935;color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:15px}}@media print{{button{{display:none}}body{{padding:0}}}}</style></head><body>
 <h1>{esc(s.get('company_name', 'Prajeta'))}</h1><div class=muted>{esc(s.get('legal_name'))} · {esc(s.get('support_email'))}</div>

@@ -47,16 +47,16 @@ export function Txt({
 }: PropsWithChildren<{ v?: Variant; color?: string; style?: StyleProp<TextStyle>; numberOfLines?: number; testID?: string; center?: boolean }>) {
   const { colors } = useTheme();
   const base: Record<Variant, TextStyle> = {
-    display: { fontFamily: fonts.extrabold, fontSize: 32, lineHeight: 38, letterSpacing: -0.8 },
-    title: { fontFamily: fonts.extrabold, fontSize: 24, lineHeight: 30, letterSpacing: -0.4 },
-    h2: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
-    h3: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 22 },
-    body: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21 },
+    display: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 36, letterSpacing: -0.56, fontVariant: ["tabular-nums"] },
+    title: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, letterSpacing: -0.24 },
+    h2: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 28, letterSpacing: -0.2 },
+    h3: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
+    body: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
     bodyBold: { fontFamily: fonts.semibold, fontSize: 14, lineHeight: 20 },
-    caption: { fontFamily: fonts.medium, fontSize: 12, lineHeight: 16, color: colors.muted },
-    label: { fontFamily: fonts.bold, fontSize: 11, lineHeight: 14, letterSpacing: 0.8, textTransform: "uppercase", color: colors.muted },
-    num: { fontFamily: fonts.numBold, fontSize: 18, lineHeight: 22 },
-    numLg: { fontFamily: fonts.numBold, fontSize: 30, lineHeight: 34, letterSpacing: -0.5 },
+    caption: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 16, letterSpacing: 0.12, color: colors.muted },
+    label: { fontFamily: fonts.bold, fontSize: 10, lineHeight: 14, letterSpacing: 0.4, textTransform: "uppercase", color: colors.muted },
+    num: { fontFamily: fonts.numBold, fontSize: 18, lineHeight: 24, fontVariant: ["tabular-nums"] },
+    numLg: { fontFamily: fonts.numBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.22, fontVariant: ["tabular-nums"] },
   };
   return (
     <Text
@@ -147,10 +147,11 @@ export function Card({ children, style, onPress, testID, tone = "plain" }: Props
   const bg = tone === "grey" ? colors.surfaceSecondary : tone === "dark" ? colors.surfaceInverse : colors.surface;
   const st: ViewStyle = {
     backgroundColor: bg,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: space.lg,
     borderWidth: tone === "plain" ? 1 : 0,
     borderColor: colors.border,
+    ...(tone === "plain" ? { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : null),
   };
   if (onPress)
     return (
@@ -227,12 +228,12 @@ export function Field({
         {...rest}
         style={[
           {
-            backgroundColor: colors.surfaceSecondary,
+            backgroundColor: colors.surface,
             borderRadius: radius.md,
-            borderWidth: 1.5,
-            borderColor: error ? colors.error : focus ? colors.onSurface : "transparent",
+            borderWidth: error || focus ? 1.5 : 1,
+            borderColor: error ? colors.error : focus ? colors.onSurface : colors.border,
             paddingHorizontal: space.lg,
-            minHeight: rest.multiline ? 96 : 50,
+            minHeight: rest.multiline ? 96 : 52,
             paddingVertical: rest.multiline ? space.md : 0,
             fontFamily: fonts.medium,
             fontSize: 15,
@@ -252,13 +253,13 @@ export function Chip({ label, selected, onPress, testID, icon }: { label: string
   return (
     <Pressable
       testID={testID}
-      hitSlop={4}
+      hitSlop={5}
       onPress={() => {
         haptic();
         onPress?.();
       }}
       style={{
-        height: 36,
+        height: 38,
         flexShrink: 0,
         paddingHorizontal: space.md,
         borderRadius: radius.pill,
@@ -271,7 +272,7 @@ export function Chip({ label, selected, onPress, testID, icon }: { label: string
       }}
     >
       {icon ? <Ionicons name={icon as any} size={14} color={selected ? colors.onSurfaceInverse : colors.onSurface} /> : null}
-      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: selected ? colors.onSurfaceInverse : colors.onSurface }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: selected ? colors.onSurfaceInverse : colors.muted }}>{label}</Text>
     </Pressable>
   );
 }
@@ -329,19 +330,22 @@ export const STATUS_LABELS: Record<string, string> = {
 
 export function StatusBadge({ status, testID }: { status: string; testID?: string }) {
   const { colors } = useTheme();
-  const good = ["COMPLETED", "APPROVED", "PAID", "paid", "ACCEPTED", "resolved", "ADVANCE_PAID", "IN_PROGRESS"];
-  const bad = ["CANCELLED", "REJECTED", "SUSPENDED", "failed", "DECLINED", "EXPIRED"];
-  const warn = ["PAYMENT_PENDING", "QUOTE_REQUESTED", "QUOTED", "PENDING", "SUBMITTED", "UNDER_REVIEW", "created", "open", "refund_pending", "ASSIGNED", "OFFERED", "NEW"];
-  const [bg, fg] = good.includes(status)
-    ? [colors.successSoft, colors.success]
+  const done = ["COMPLETED", "APPROVED", "PAID", "paid", "resolved", "RESOLVED"];
+  const active = ["ACCEPTED", "ADVANCE_PAID", "IN_PROGRESS", "DRIVER_ARRIVED", "AWAITING_ASSIGNMENT", "CONFIRMED", "ACKNOWLEDGED"];
+  const bad = ["CANCELLED", "REJECTED", "SUSPENDED", "failed", "DECLINED", "EXPIRED", "OPEN"];
+  const warn = ["PAYMENT_PENDING", "QUOTE_REQUESTED", "QUOTED", "PENDING", "SUBMITTED", "UNDER_REVIEW", "created", "open", "refund_pending", "ASSIGNED", "OFFERED", "NEW", "REQUESTED"];
+  const [bg, fg, bd] = done.includes(status)
+    ? [colors.successSoft, colors.successText, colors.successBorder]
     : bad.includes(status)
-      ? [colors.brandTertiary, colors.error]
+      ? [colors.errorSoft, colors.errorText, colors.errorBorder]
       : warn.includes(status)
-        ? [colors.warningSoft, colors.warning]
-        : [colors.infoSoft, colors.info];
+        ? [colors.pendingSoft, colors.pendingText, colors.pendingBorder]
+        : active.includes(status)
+          ? [colors.infoSoft, colors.info, colors.infoBorder]
+          : [colors.surfaceSecondary, colors.onSurfaceSecondary, colors.border];
   return (
-    <View testID={testID} style={{ backgroundColor: bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, alignSelf: "flex-start" }}>
-      <Text style={{ color: fg, fontFamily: fonts.bold, fontSize: 11 }}>{STATUS_LABELS[status] ?? status.replace(/_/g, " ")}</Text>
+    <View testID={testID} style={{ backgroundColor: bg, borderWidth: 1, borderColor: bd, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, alignSelf: "flex-start" }}>
+      <Text style={{ color: fg, fontFamily: fonts.bold, fontSize: 10, letterSpacing: 0.4, textTransform: "uppercase" }}>{STATUS_LABELS[status] ?? status.replace(/_/g, " ")}</Text>
     </View>
   );
 }

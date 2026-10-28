@@ -153,6 +153,16 @@ export default function BookingDetail() {
           </Card>
         ) : null}
 
+        {b.end_otp && b.status === "IN_PROGRESS" ? (
+          <Card testID="end-pin-card" style={{ alignItems: "center", gap: 4, borderColor: colors.surfaceInverse, borderWidth: 1.5 }}>
+            <Txt v="label">Trip-end handover PIN</Txt>
+            <Txt v="numLg" testID="end-pin-value" style={{ letterSpacing: 10 }}>
+              {b.end_otp}
+            </Txt>
+            <Txt v="caption" center>Share only after you get your car and keys back in good condition.</Txt>
+          </Card>
+        ) : null}
+
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <LiveTracking bookingId={b.id} /> : null}
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <SosButton bookingId={b.id} role="customer" /> : null}
 
@@ -193,7 +203,7 @@ export default function BookingDetail() {
           <KV k="Pickup" v={b.pickup} />
           {b.destination ? <KV k="Destination" v={b.destination} /> : null}
           <KV k="Duration" v={b.service_id === "outstation" ? `${b.days} day(s)` : `${b.hours} hrs`} />
-          <KV k="Vehicle" v={`${b.vehicle_type} · ${b.transmission}`} />
+          <KV k="Vehicle" v={b.vehicle ? `${b.vehicle.make} ${b.vehicle.model} · ${b.vehicle.reg_number} · ${b.transmission}` : `${b.vehicle_type} · ${b.transmission}`} testID="booking-vehicle" />
           {b.notes ? <KV k="Instructions" v={b.notes} /> : null}
         </Card>
 
