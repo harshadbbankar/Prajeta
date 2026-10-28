@@ -155,7 +155,10 @@ async def booking_brief(b: dict, full: bool = False) -> dict:
 async def offers(user: dict = Depends(require_driver)):
     await expire_offers()
     out = []
-    async for a in db.booking_assignments.find({"driver_id": user["id"], "status": "OFFERED"}, {"_id": 0}).sort("created_at", -1):
+    t = now_iso()
+    async for a in db.booking_assignments.find({"driver_id": user["id"], "status": "OFFERED",
+                                                "$or": [{"visible_at": {"$exists": False}}, {"visible_at": {"$lte": t}}]},
+                                               {"_id": 0}).sort("created_at", -1):
         b = await db.bookings.find_one({"id": a["booking_id"]}, {"_id": 0})
         if not b or b.get("driver_id") or b["status"] not in ("AWAITING_ASSIGNMENT", "ASSIGNED"):
             continue
@@ -167,7 +170,7 @@ async def offers(user: dict = Depends(require_driver)):
 async def accept_offer(offer_id: str, user: dict = Depends(require_driver)):
     await expire_offers()
     a = await db.booking_assignments.find_one({"id": offer_id, "driver_id": user["id"]}, {"_id": 0})
-    if not a or a["status"] != "OFFERED":
+    if not a or a["status"] != "OFFERED" or (a.get("visible_at") and a["visible_at"] > now_iso()):
         raise HTTPException(400, "This offer is no longer available")
     p = await my_profile(user)
     b = await db.bookings.find_one({"id": a["booking_id"]}, {"_id": 0})

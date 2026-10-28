@@ -8,7 +8,7 @@ import { api } from "@/src/api";
 import { fmtDate, fmtTime } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
-import { Card, Chip, ChipRow, Empty, Field, Loader, Row, StatusBadge, Txt, money } from "@/src/ui";
+import { Btn, Card, Chip, ChipRow, Empty, Field, Loader, Row, StatusBadge, Txt, money } from "@/src/ui";
 
 const GROUPS: [string, string][] = [
   ["AWAITING_ASSIGNMENT,ASSIGNED", "Needs driver"],
@@ -30,7 +30,10 @@ export default function AdminBookings() {
     <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
       <View style={{ paddingTop: insets.top + space.sm, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
-          <Txt v="title">Bookings & dispatch</Txt>
+          <Row style={{ justifyContent: "space-between" }}>
+            <Txt v="title">Bookings & dispatch</Txt>
+            <Btn small variant="outline" icon="map" title="Live map" onPress={() => router.push("/erp/live-map" as any)} testID="dispatch-live-map-button" />
+          </Row>
           <Field placeholder="Search ref, customer, phone, driver" value={search} onChangeText={setSearch} testID="admin-bookings-search" />
         </View>
         <ChipRow>

@@ -9,8 +9,9 @@ import { Btn, Card, Row, Txt } from "@/src/ui";
 
 type State = "checking" | "ask" | "denied" | "blocked" | "sharing" | "error";
 
-/** Driver side: shares foreground GPS with the customer while a trip is active. */
-export function LocationShare({ bookingId }: { bookingId: string }) {
+/** Driver side: shares foreground GPS — with the customer during a trip, or with dispatch while online. */
+export function LocationShare({ bookingId, presence }: { bookingId?: string; presence?: boolean }) {
+  const path = presence ? "/driver/location" : `/driver/jobs/${bookingId}/location`;
   const { colors } = useTheme();
   const [state, setState] = useState<State>("checking");
   const [lastSent, setLastSent] = useState<Date | null>(null);
@@ -23,7 +24,7 @@ export function LocationShare({ bookingId }: { bookingId: string }) {
       if (Date.now() - lastPost.current < 8000) return;
       lastPost.current = Date.now();
       try {
-        await api(`/driver/jobs/${bookingId}/location`, {
+        await api(path, {
           body: { lat: l.coords.latitude, lng: l.coords.longitude, heading: l.coords.heading, speed: l.coords.speed, accuracy: l.coords.accuracy },
         });
         setLastSent(new Date());
@@ -31,7 +32,7 @@ export function LocationShare({ bookingId }: { bookingId: string }) {
         // transient network issue — next fix retries
       }
     },
-    [bookingId],
+    [path],
   );
 
   const start = useCallback(async () => {
@@ -67,9 +68,9 @@ export function LocationShare({ bookingId }: { bookingId: string }) {
       <Card testID="location-sharing-card" tone="grey" style={{ gap: 4 }}>
         <Row>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success }} />
-          <Txt v="bodyBold">Sharing live location with customer</Txt>
+          <Txt v="bodyBold">{presence ? "Dispatch can see you're nearby" : "Sharing live location with customer"}</Txt>
         </Row>
-        <Txt v="caption">{lastSent ? `Last update ${lastSent.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Getting your position…"} · keep this screen open</Txt>
+        <Txt v="caption">{lastSent ? `Last update ${lastSent.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Getting your position…"} · keep the app open</Txt>
       </Card>
     );
 
@@ -77,7 +78,7 @@ export function LocationShare({ bookingId }: { bookingId: string }) {
     <Card testID="location-permission-card" style={{ gap: space.sm, borderColor: colors.warning, borderWidth: 1.5 }}>
       <Row>
         <Ionicons name="navigate-circle" size={22} color={colors.warning} />
-        <Txt v="h3" style={{ flex: 1 }}>Share your live location</Txt>
+        <Txt v="h3" style={{ flex: 1 }}>{presence ? "Get nearby jobs faster" : "Share your live location"}</Txt>
       </Row>
       <Txt v="body" color={colors.muted}>
         {state === "blocked"
@@ -86,7 +87,9 @@ export function LocationShare({ bookingId }: { bookingId: string }) {
             ? "Without location, your customer can't see your arrival time and may call you repeatedly."
             : state === "error"
               ? "We couldn't read your location. Check that location/GPS is on and try again."
-              : "Your customer sees where you are and when you'll arrive. Shared only during this trip."}
+              : presence
+                ? "Share your location while online so our team can send you the closest bookings. Stops when you go offline."
+                : "Your customer sees where you are and when you'll arrive. Shared only during this trip."}
       </Txt>
       {state === "blocked" ? (
         Platform.OS === "web" ? (

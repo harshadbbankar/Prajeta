@@ -1,13 +1,13 @@
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { useState } from "react";
-import { Image, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 
 import { BACKEND_URL } from "@/src/api";
 import { radius, useTheme } from "@/src/theme";
 import { Txt } from "@/src/ui";
 
 export type GeoPoint = { lat: number; lng: number };
-type Marker = GeoPoint & { kind: "driver" | "pickup" | "destination" };
+export type Marker = GeoPoint & { kind: "driver" | "pickup" | "destination"; id?: string; label?: string; busy?: boolean; selected?: boolean; onPress?: () => void };
 
 const TILE = 256;
 const project = (p: GeoPoint, z: number) => {
@@ -55,11 +55,13 @@ export function TrackMap({ markers, height = 240, testID }: { markers: Marker[];
         ? pts.map((m, i) => {
             const p = xy[i];
             const isDriver = m.kind === "driver";
-            const size = isDriver ? 36 : 30;
+            const size = isDriver ? (m.selected ? 42 : 36) : 30;
             return (
-              <View
-                key={m.kind}
-                testID={`map-marker-${m.kind}`}
+              <Pressable
+                key={m.id ?? m.kind}
+                testID={`map-marker-${m.id ?? m.kind}`}
+                onPress={m.onPress}
+                disabled={!m.onPress}
                 style={{
                   position: "absolute",
                   left: p.x - ox - size / 2,
@@ -70,12 +72,16 @@ export function TrackMap({ markers, height = 240, testID }: { markers: Marker[];
                   alignItems: "center",
                   justifyContent: "center",
                   borderWidth: 3,
-                  borderColor: colors.surface,
-                  backgroundColor: isDriver ? colors.surfaceInverse : m.kind === "pickup" ? colors.brandPrimary : colors.success,
+                  borderColor: m.selected ? colors.brandPrimary : colors.surface,
+                  backgroundColor: isDriver ? (m.busy ? colors.muted : colors.surfaceInverse) : m.kind === "pickup" ? colors.brandPrimary : colors.success,
                 }}
               >
-                <Ionicons name={isDriver ? "car-sport" : m.kind === "pickup" ? "location" : "flag"} size={isDriver ? 18 : 14} color={colors.onSurfaceInverse} />
-              </View>
+                {m.label ? (
+                  <Txt v="caption" color={colors.onSurfaceInverse} style={{ fontSize: 12, fontWeight: "800" }}>{m.label}</Txt>
+                ) : (
+                  <Ionicons name={isDriver ? "car-sport" : m.kind === "pickup" ? "location" : "flag"} size={isDriver ? 18 : 14} color={colors.onSurfaceInverse} />
+                )}
+              </Pressable>
             );
           })
         : null}

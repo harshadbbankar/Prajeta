@@ -20,6 +20,11 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 5 (2026-06)
+- Share trip link: customer shares no-login /live/{token} page (WhatsApp / copy / share sheet; stop sharing); public payload hides phones, OTP, address; ends with the trip.
+- Driver badges: Top Rated (4.5+, 5+ reviews), Gold Star (4.8+, 10+); recomputed per review + startup; badge holders see broadcast offers 5 min early (visible_at), others later; shown to customer, driver, ERP.
+- ERP live map: /erp/live-map (dispatch button, More, booking detail) — online/on-trip drivers by city or nearest-first for a booking with Offer job; drivers share presence location while online; eligible drivers list shows distance + badge.
+
 ## Iteration 4 (2026-06)
 - Live ride tracking: driver trip screen shares foreground GPS (expo-location, permission flow w/ Open Settings) → POST /api/driver/jobs/{id}/location; customer booking screen shows live map (OSM tiles proxied via /api/tiles, cached) + ETA/distance to pickup or destination (GET /api/bookings/{id}/tracking; Nominatim geocode cached, city-centre fallback).
 - Ratings: review tags, driver notified, low ratings alert admins; driver profile "My ratings"; ERP More → Driver ratings leaderboard (Bayesian score, low-rating alerts).

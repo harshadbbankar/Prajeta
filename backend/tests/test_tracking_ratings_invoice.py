@@ -8,7 +8,9 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("EXPO_BACKEND_URL").rstrip("/") + "/api"
-TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+# random future day avoids clashing with leftover active trips of the demo driver (driver_conflict)
+import random  # noqa: E402
+TOMORROW = (date.today() + timedelta(days=random.randint(30, 900))).isoformat()
 
 
 def login(phone, role="customer"):

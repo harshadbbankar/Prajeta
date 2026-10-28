@@ -9,16 +9,23 @@ import { usePolling } from "@/src/hooks";
 import { space, useTheme } from "@/src/theme";
 import { Card, Row, Txt } from "@/src/ui";
 
+export type TrackingData = any;
+
 const ago = (s: number) => (s < 60 ? `${s}s ago` : `${Math.round(s / 60)} min ago`);
 
 /** Customer view: driver's live position + ETA, refreshed every 8 seconds. */
 export function LiveTracking({ bookingId }: { bookingId: string }) {
-  const { colors } = useTheme();
   const q = useQuery({ queryKey: ["tracking", bookingId], queryFn: () => api<any>(`/bookings/${bookingId}/tracking`) });
   const poll = useCallback(() => q.refetch(), [q]);
   const t = q.data;
   usePolling(poll, 8000, !!t?.active);
   if (!t?.active) return null;
+  return <TrackingCard t={t} />;
+}
+
+/** Shared by the customer booking screen and the public family link. */
+export function TrackingCard({ t, testID = "live-tracking-card" }: { t: TrackingData; testID?: string }) {
+  const { colors } = useTheme();
 
   const markers: any[] = [];
   if (t.driver) markers.push({ ...t.driver, kind: "driver" });
@@ -37,7 +44,7 @@ export function LiveTracking({ bookingId }: { bookingId: string }) {
             : "Driver on the way";
 
   return (
-    <Card testID="live-tracking-card" style={{ gap: space.md }}>
+    <Card testID={testID} style={{ gap: space.md }}>
       <Row style={{ justifyContent: "space-between" }}>
         <Row style={{ flex: 1 }}>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: t.driver && !t.stale ? colors.success : colors.warning }} />
@@ -52,7 +59,7 @@ export function LiveTracking({ bookingId }: { bookingId: string }) {
             {t.distance_km} km away from your {t.target === "destination" ? "destination" : "pickup"}
           </Txt>
         ) : null}
-        {!t.driver ? <Txt v="caption">Your driver's position will appear here once they start sharing location.</Txt> : null}
+        {!t.driver ? <Txt v="caption">Your driver&apos;s position will appear here once they start sharing location.</Txt> : null}
         {t.driver && t.stale ? (
           <Row gap={4}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.warning} />

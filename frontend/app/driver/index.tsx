@@ -6,6 +6,7 @@ import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { LocationShare } from "@/src/components/LocationShare";
 import { useAuth } from "@/src/auth";
 import { fmtDate, fmtTime, usePolling } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
@@ -155,6 +156,16 @@ export default function DriverHome() {
           </Card>
         ) : null}
 
+        {approved && p.online && !active.length ? <LocationShare presence /> : null}
+        {approved && p.badge ? (
+          <Card testID="driver-badge-card" style={{ gap: 4, borderColor: colors.warning, borderWidth: 1.5 }}>
+            <Row>
+              <Ionicons name={p.badge === "gold" ? "trophy" : "ribbon"} size={20} color={colors.warning} />
+              <Txt v="h3">{p.badge === "gold" ? "Gold Star Driver" : "Top Rated"}</Txt>
+            </Row>
+            <Txt v="caption">Thanks for great service! You see new booking offers before other drivers.</Txt>
+          </Card>
+        ) : null}
         {active.map((j) => (
           <Card key={j.id} tone="dark" testID={`active-job-${j.ref}`} onPress={() => router.push(`/trip/${j.id}` as any)} style={{ gap: space.sm }}>
             <Row style={{ justifyContent: "space-between" }}>
@@ -187,6 +198,14 @@ export default function DriverHome() {
                 const mins = Math.max(0, Math.round((new Date(o.expires_at).getTime() - Date.now()) / 60000));
                 return (
                   <Card key={o.id} testID={`offer-${o.booking.ref}`} style={{ gap: space.sm, borderColor: colors.brandPrimary, borderWidth: 1.5 }}>
+                    {o.priority ? (
+                      <View testID={`offer-priority-${o.booking.ref}`}>
+                      <Row gap={4}>
+                        <Ionicons name="flash" size={14} color={colors.warning} />
+                        <Txt v="label" color={colors.warning}>Priority offer · only top-rated drivers see this now</Txt>
+                      </Row>
+                      </View>
+                    ) : null}
                     <Row style={{ justifyContent: "space-between" }}>
                       <Txt v="h3">{o.booking.service_name}</Txt>
                       <Txt v="caption" color={colors.brandPrimary}>

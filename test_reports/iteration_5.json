@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 5 tested Share Trip Link, Driver Reward Badges with priority offers, presence location and the ERP Live Map, on both backend and frontend. Backend: 19 new pytest tests pass, and the 21 iteration-4 regression tests pass after one test-data fix (40/40). Frontend (375x667 web preview): every requested flow works. Customer share card: WhatsApp opens wa.me with a /live/{token} link, Copy link puts the URL on the clipboard, the 'Link active' label and Stop sharing work. Public /live/{token} page works without login: map, driver card, waiting state, ended state and an error for invalid links. Map tiles now load through /api/tiles (all 200) and show the OSM credit with no CARTO watermark. Driver: badge card, priority offer label (none on direct offers), presence location card (posts /driver/location), my-badge and next-badge in profile. ERP: Dispatch Live map button, More > Live driver map, city chips, counts and map, booking detail > nearest drivers > Offer job (toast shown, then goes back). ERP ratings badges and the customer driver badge both show. No red screens. Issues found are logic and UX gaps, not crashes.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/live-drivers", "issue": "on_trip is worked out from ANY booking in ACCEPTED/DRIVER_ARRIVED/IN_PROGRESS, including ACCEPTED bookings days or years away (e.g. PRJ-3YB57793 on 2030-01-01). A driver who is free now shows as 'On trip' (grey), and the dispatch map ranks them last. Limit on_trip to DRIVER_ARRIVED/IN_PROGRESS, or to ACCEPTED trips whose booking_window covers now (or starts within about 1-2 h). If the driver has several such bookings, 'trip' is just whichever one was read last. Reference: tracking_routes.py:307-319"},
+      {"endpoint": "logic.broadcast_offers / badges", "issue": "Gold gives no extra reward over Top Rated: both get visible_at=now. MyRatings next_badge still says 'to unlock priority offers' to a driver who already has them. Either give Gold a real perk (e.g. a longer head start) or change the copy. Reference: logic.py:177"},
+      {"endpoint": "logic.broadcast_offers", "issue": "Drivers without a badge get no push notification when their delayed offer becomes visible 5 min later (only badge holders get 'Priority booking offer'). They only see it if they reopen or poll the offers list. Reference: logic.py:190"},
+      {"endpoint": "logic.refresh_driver_badge", "issue": "1) The average is rounded to 2 decimals before the badge check, so a true average of 4.4951 counts as 4.5 and earns Top Rated. /driver/reviews next_badge uses the exact average, so the two can disagree. 2) On startup every approved driver with zero reviews gets rating=None, which overwrites any seeded or imported rating. Reference: logic.py:34-38"},
+      {"endpoint": "GET /api/public/live/{token}", "issue": "Privacy is fine: no phones, OTP, ids or address text. Note that pickup/destination are exact geocoded coordinates, so the family can place the pickup precisely. This is acceptable for the safety use case; just a note."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ShareTrip (web)", "issue": "On web, Linking.openURL(wa.me) opens WhatsApp in the SAME tab, so the customer leaves the app (seen: the page went to api.whatsapp.com). onChange() runs after the page has already left. On web, use window.open(url, '_blank') instead.", "testID": "share-trip-whatsapp", "priority": "medium"},
+      {"component": "ERP booking detail after Live map 'Offer job'", "issue": "router.back() returns to the booking detail without refetching. After the offer the screen still shows 'Confirmed · Assigning' and the Offer button, while the backend status is ASSIGNED. Invalidate the admin booking query before going back.", "testID": "live-driver-offer-0", "priority": "low"},
+      {"component": "Public live page invalid token", "issue": "The ErrorView title reads 'Something went wrong' for a link that was turned off or is invalid. A friendlier title would be 'Link not available'.", "testID": "public-live-status", "priority": "low"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Customer booking detail / ERP live map", "issues": ["Small buttons share-trip-other, share-trip-stop, live-driver-call/offer/profile and dispatch-live-map-button are 40px tall, below the 44px minimum touch target", "Live map city chips: the default selected city (Mumbai) is scrolled off-screen at 375px. Scroll the selected chip into view or put the default first", "Live map with a single marker zooms in very far (street level), which gives little context for dispatch. Consider a maximum zoom of about 13"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_share_badges_livemap.py", "/app/backend/tests/setup_ui_iter5.py", "/app/test_reports/pytest/pytest_iter5.xml"],
+  "action_items": [
+    "MEDIUM: live-drivers on_trip should only count trips that are happening now (DRIVER_ARRIVED/IN_PROGRESS, or ACCEPTED within the booking window). Future ACCEPTED bookings currently mark a free driver as 'On trip' (tracking_routes.py:307)",
+    "MEDIUM: ShareTrip on web: open wa.me in a new tab (window.open(url,'_blank')) so the app is not replaced",
+    "LOW: ERP live-map offer: invalidate the admin booking query before router.back()",
+    "LOW: Give Gold a real extra perk, or fix the next_badge copy 'to unlock priority offers' for drivers who are already Top Rated",
+    "LOW: Notify drivers without a badge when their delayed offer becomes visible (or tell them offers may appear up to 5 min later)",
+    "LOW: refresh_driver_badge: check the badge against the unrounded average; don't set rating=None for drivers with zero reviews on startup",
+    "LOW: Make small buttons at least 44px tall; on the public page, title the invalid-link state 'Link not available'"
+  ],
+  "critical_code_review_comments": [
+    "The public share endpoint correctly whitelists fields (no phone/OTP/address). The token is secrets.token_urlsafe(12). DELETE removes the token, and sharing again creates a new one.",
+    "accept_offer correctly blocks acceptance before visible_at. The offers list filters on visible_at <= now. Direct ERP assign offers have no visible_at, so they are not affected.",
+    "admin_routes.py is 909 lines; consider splitting it (more than 700 lines).",
+    "ShareTrip native link uses BACKEND_URL + /live/{token}. This only works while the website and the backend share a host; use a dedicated public web URL env for production.",
+    "Copy link on web shows the 'copied' toast even when navigator.clipboard is undefined (non-secure context)."
+  ],
+  "updated_files": ["/app/backend/tests/test_share_badges_livemap.py (new)", "/app/backend/tests/setup_ui_iter5.py (new)", "/app/backend/tests/test_tracking_ratings_invoice.py (test-only fix: random future booking date so it doesn't clash with the demo driver's leftover IN_PROGRESS trip PRJ-8C3XBV45 on tomorrow 10:00)"],
+  "success_rate": {"backend": "100% (40/40 incl. iteration-4 regression)", "frontend": "100% of requested flows work; 3 minor UX bugs"},
+  "seed_data_creation": "Test bookings prefixed TEST_ were created, most of them cancelled or completed. Reviews from the iteration-4 regression run lowered demo driver Ravi to avg 4.3 (16 reviews). Ravi's badge was temporarily set to 'top' for UI checks and restored to null. Demo Driver 2 (+917000000001, Bengaluru) now has a last_location. Share token 34mIMv7ABYyfCaRZ (PRJ-3YB57793) is still active. db.otp_requests cleared.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0 (pytest.ini enables xdist). Demo driver Ravi has a leftover IN_PROGRESS trip PRJ-8C3XBV45 dated 2026-10-29 10:00 and an ACCEPTED trip PRJ-3YB57793 (2030-01-01), so pick other date/times to avoid driver_conflict. Driver 9000000002 has no badge, so broadcast offers are hidden for 5 min; tests use direct /admin/bookings/{id}/assign. For UI, inject the token: localStorage auth_token = JSON.stringify(token). Admin tabs: navigate via the bottom tab text ('Dispatch', 'More'). Deep-linking /admin/bookings renders the Dashboard, and a hidden dispatch-live-map-button sits under admin-notifications-button. Login for non-demo phones returns dev_code (preview).",
+  "rca_of_issue": "Iteration-4 regression failures (12) were caused by test data, not the app: to_accepted() always booked tomorrow 10:00, which clashes with the demo driver's leftover IN_PROGRESS trip, so /assign returned 400 'conflicting assignment'. Fixed in the test with a random future date."
+}

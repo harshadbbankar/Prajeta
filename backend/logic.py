@@ -10,6 +10,39 @@ from core import db, now, now_iso, new_id, notify, notify_admins
 
 ACTIVE_DRIVER_STATUSES = ["ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"]
 OFFER_MINUTES = 30
+PRIORITY_MINUTES = 5  # badge holders see broadcast offers this many minutes before everyone else
+
+BADGES = {
+    "gold": {"label": "Gold Star Driver", "min_rating": 4.8, "min_reviews": 10},
+    "top": {"label": "Top Rated", "min_rating": 4.5, "min_reviews": 5},
+}
+
+
+def badge_for(avg: Optional[float], count: int) -> Optional[str]:
+    for key in ("gold", "top"):
+        r = BADGES[key]
+        if avg is not None and count >= r["min_reviews"] and avg >= r["min_rating"]:
+            return key
+    return None
+
+
+async def refresh_driver_badge(driver_id: str) -> Optional[str]:
+    """Recompute rating + badge from all reviews; notify the driver when they earn a new badge."""
+    if not driver_id:
+        return None
+    ratings = [r["rating"] async for r in db.reviews.find({"driver_id": driver_id}, {"_id": 0, "rating": 1})]
+    avg = sum(ratings) / len(ratings) if ratings else None
+    badge = badge_for(avg, len(ratings))
+    upd = {"review_count": len(ratings), "badge": badge}
+    if avg is not None:
+        upd["rating"] = round(avg, 1)
+    prev = await db.driver_profiles.find_one_and_update(
+        {"user_id": driver_id}, {"$set": upd},
+        projection={"_id": 0, "badge": 1})
+    if prev is not None and badge and prev.get("badge") != badge and (prev.get("badge") is None or badge == "gold"):
+        await notify(driver_id, f"You earned {BADGES[badge]['label']}!",
+                     f"Great service is rewarded — you now get new booking offers {PRIORITY_MINUTES} minutes before other drivers.")
+    return badge
 
 
 def is_night(time_str: str) -> bool:
@@ -139,9 +172,12 @@ async def driver_eligibility(profile: dict, booking: dict, require_online: bool 
 async def broadcast_offers(booking: dict):
     """Offer a confirmed booking to every eligible online driver; first to accept wins."""
     count = 0
-    expires = (now() + timedelta(minutes=OFFER_MINUTES)).isoformat()
+    t = now()
     async for p in db.driver_profiles.find({"status": "APPROVED", "online": True, "city_id": booking["city_id"]},
                                            {"_id": 0}):
+        # Badge holders get the offer immediately; others after the priority window
+        visible = t if p.get("badge") else t + timedelta(minutes=PRIORITY_MINUTES)
+        expires = (visible + timedelta(minutes=OFFER_MINUTES)).isoformat()
         if await driver_eligibility(p, booking, require_online=True):
             continue
         exists = await db.booking_assignments.find_one({"booking_id": booking["id"], "driver_id": p["user_id"],
@@ -151,9 +187,10 @@ async def broadcast_offers(booking: dict):
         await db.booking_assignments.insert_one({
             "id": new_id(), "booking_id": booking["id"], "driver_id": p["user_id"], "status": "OFFERED",
             "mode": "broadcast", "payout": booking.get("driver_payout", 0), "expires_at": expires,
-            "created_at": now_iso(),
+            "visible_at": visible.isoformat(), "priority": bool(p.get("badge")), "created_at": now_iso(),
         })
-        await notify(p["user_id"], "New booking offer", f"{booking['service_name']} on {booking['date']} at {booking['time']}",
+        if p.get("badge"):
+            await notify(p["user_id"], "Priority booking offer", f"{booking['service_name']} on {booking['date']} at {booking['time']}",
                      booking["id"])
         count += 1
     return count

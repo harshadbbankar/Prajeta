@@ -327,11 +327,17 @@ async def booking_detail(bid: str, user: dict = Depends(SUPPORT)):
     payments = [clean(p) async for p in db.payments.find({"booking_id": bid}, {"_id": 0})]
     eligible = []
     if b["status"] in ("AWAITING_ASSIGNMENT", "ASSIGNED"):
+        from tracking_routes import geocode, haversine_km, ROAD_FACTOR
+        pickup = await geocode(b.get("pickup", ""), b["city_id"], b.get("city_name", ""))
         async for p in db.driver_profiles.find({"status": "APPROVED", "city_id": b["city_id"]}, {"_id": 0}):
             reason = await driver_eligibility(p, b)
+            loc = p.get("last_location")
+            km = round(haversine_km((loc["lat"], loc["lng"]), (pickup["lat"], pickup["lng"])) * ROAD_FACTOR, 1) if loc and pickup else None
             eligible.append({"user_id": p["user_id"], "name": p["name"], "online": p.get("online"),
                              "rating": p.get("rating"), "experience_years": p.get("experience_years"),
+                             "badge": p.get("badge"), "distance_km": km,
                              "eligible": reason is None, "reason": reason})
+        eligible.sort(key=lambda d: (not d["eligible"], d["distance_km"] is None, d["distance_km"] or 0, not d["badge"]))
     return {**b, "events": events, "offers": offers, "payments": payments, "eligible_drivers": eligible}
 
 

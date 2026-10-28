@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BACKEND_URL, api } from "@/src/api";
 import { LiveTracking } from "@/src/components/LiveTracking";
+import { ShareTrip } from "@/src/components/ShareTrip";
 import { downloadInvoice } from "@/src/invoice";
 import { TIME_SLOTS, fmtDate, fmtTime, nextDays, useConfig, usePolling } from "@/src/hooks";
 import { space, useTheme } from "@/src/theme";
@@ -164,6 +165,11 @@ export default function BookingDetail() {
                 <Txt v="caption">
                   Verified driver · {b.driver.experience_years} yrs exp · ★ {b.driver.rating ?? "New"}
                 </Txt>
+                {b.driver.badge_label ? (
+                  <Txt v="label" color={colors.warning} testID="driver-badge">
+                    {b.driver.badge === "gold" ? "🏆" : "🎖️"} {b.driver.badge_label}
+                  </Txt>
+                ) : null}
               </View>
               {b.driver.phone ? (
                 <Pressable testID="call-driver-button" onPress={() => Linking.openURL(`tel:${b.driver.phone}`)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.successSoft, alignItems: "center", justifyContent: "center" }}>
@@ -173,6 +179,8 @@ export default function BookingDetail() {
             </Row>
           </Card>
         ) : null}
+
+        {["AWAITING_ASSIGNMENT", "ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <ShareTrip booking={b} onChange={() => q.refetch()} /> : null}
 
         <Card style={{ gap: 2 }}>
           <Txt v="h3" style={{ marginBottom: space.sm }}>

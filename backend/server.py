@@ -19,7 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 from core import (db, client, now, now_iso, new_id, public_ref, normalize_phone, make_token, get_current_user,
                   require_customer, notify, notify_admins, get_settings, get_object, init_storage, clean, rupees,
                   ADMIN_ROLES, logger)
-from logic import compute_fare, confirm_booking, add_event, recompute_payment_status
+from logic import compute_fare, confirm_booking, add_event, recompute_payment_status, refresh_driver_badge, BADGES
 from seed import seed
 import driver_routes
 import admin_routes
@@ -321,7 +321,8 @@ async def booking_detail(booking_id: str, user: dict = Depends(require_customer)
         p = await db.driver_profiles.find_one({"user_id": b["driver_id"]}, {"_id": 0})
         if p:
             driver = {"name": p["name"], "phone": p["phone"] if b["status"] != "COMPLETED" else None,
-                      "experience_years": p.get("experience_years"), "rating": p.get("rating"), "verified": True}
+                      "experience_years": p.get("experience_years"), "rating": p.get("rating"), "verified": True,
+                      "badge": p.get("badge"), "badge_label": BADGES.get(p.get("badge") or "", {}).get("label")}
     return {**customer_view(b), "events": events, "payments": payments, "review": review, "driver": driver}
 
 
@@ -386,10 +387,7 @@ async def review(booking_id: str, body: ReviewIn, user: dict = Depends(require_c
     await notify(b.get("driver_id"), f"New {body.rating}★ rating", f"A customer rated your trip {b['ref']}", booking_id)
     if body.rating <= 2:
         await notify_admins("Low driver rating", f"{b['ref']} rated {body.rating}★ — please review", booking_id)
-    ratings = [r["rating"] async for r in db.reviews.find({"driver_id": b.get("driver_id")}, {"_id": 0, "rating": 1})]
-    if ratings:
-        await db.driver_profiles.update_one({"user_id": b["driver_id"]},
-                                            {"$set": {"rating": round(sum(ratings) / len(ratings), 1)}})
+    await refresh_driver_badge(b.get("driver_id"))
     return {"ok": True}
 
 
@@ -695,6 +693,8 @@ async def startup():
     await db.booking_assignments.create_index([("booking_id", 1), ("status", 1)])
     await db.webhook_events.create_index("event_id", unique=True)
     await seed()
+    async for dp in db.driver_profiles.find({"status": "APPROVED"}, {"_id": 0, "user_id": 1}):
+        await refresh_driver_badge(dp["user_id"])
     asyncio.create_task(licence_loop())
     try:
         await run_in_threadpool(init_storage)

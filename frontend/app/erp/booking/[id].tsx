@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -55,12 +55,15 @@ export default function AdminBooking() {
           <Card style={{ gap: space.sm }} testID="eligible-drivers-card">
             <Txt v="h3">{b.status === "ACCEPTED" ? "Reassign driver" : "Assign a driver"}</Txt>
             {b.status === "ACCEPTED" ? <Txt v="caption">Current: {b.driver_name}</Txt> : null}
+            <Btn small variant="outline" icon="map" title="See nearest drivers on map" onPress={() => router.push(`/erp/live-map?booking=${b.id}` as any)} testID="open-live-map-button" />
             {!b.eligible_drivers?.length ? <Txt v="caption">{b.status === "ACCEPTED" ? "Open again after driver no-show to reassign." : "No approved drivers in this city."}</Txt> : null}
             {(b.eligible_drivers ?? []).map((d: any) => (
               <Row key={d.user_id} style={{ justifyContent: "space-between", paddingVertical: 6 }}>
                 <View style={{ flex: 1 }}>
-                  <Txt v="bodyBold">{d.name} {d.online ? "· Online" : ""}</Txt>
-                  <Txt v="caption" color={d.eligible ? colors.muted : colors.error}>{d.eligible ? `★ ${d.rating ?? "—"} · ${d.experience_years} yrs` : d.reason}</Txt>
+                  <Txt v="bodyBold">{d.name} {d.online ? "· Online" : ""} {d.badge ? (d.badge === "gold" ? "🏆" : "🎖️") : ""}</Txt>
+                  <Txt v="caption" color={d.eligible ? colors.muted : colors.error}>
+                    {d.eligible ? `★ ${d.rating ?? "—"} · ${d.experience_years} yrs${d.distance_km != null ? ` · ${d.distance_km} km away` : ""}` : d.reason}
+                  </Txt>
                 </View>
                 <Btn small title="Offer" disabled={!d.eligible} loading={busy === d.user_id} onPress={() => act("assign", { driver_id: d.user_id }, "Offer sent to driver", d.user_id)} testID={`assign-driver-${d.user_id}`} />
               </Row>

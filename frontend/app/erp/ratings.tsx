@@ -53,7 +53,7 @@ export default function Ratings() {
             </View>
           }
           ListEmptyComponent={<Empty icon="star-outline" title="No reviews in this period" />}
-          ListFooterComponent={<Txt v="caption" style={{ marginTop: space.sm }}>Score = {d.score_formula}, so drivers with many good reviews rank above a single 5★.</Txt>}
+          ListFooterComponent={<Txt v="caption" style={{ marginTop: space.sm }}>Score = {d.score_formula}, so drivers with many good reviews rank above a single 5★. Badges (based on all-time reviews): Top Rated = ★4.5+ with 5+ reviews, Gold Star = ★4.8+ with 10+ reviews. Badge holders see broadcast offers 5 min before others.</Txt>}
           renderItem={({ item: r, index }) => (
             <Card testID={`rating-driver-${index}`} onPress={() => router.push(`/erp/driver/${r.driver_id}` as any)} style={{ gap: space.sm, borderColor: index === 0 ? colors.warning : colors.border, borderWidth: index === 0 ? 1.5 : 1 }}>
               <Row style={{ justifyContent: "space-between" }}>
@@ -63,6 +63,7 @@ export default function Ratings() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Txt v="bodyBold" numberOfLines={1}>{r.name}</Txt>
+                    {r.badge_label ? <Txt v="label" color={colors.warning} testID={`rating-badge-${index}`}>{r.badge === "gold" ? "🏆" : "🎖️"} {r.badge_label}</Txt> : null}
                     <Txt v="caption">{r.city_id || "—"} · {r.completed_trips} trips completed</Txt>
                   </View>
                 </Row>
