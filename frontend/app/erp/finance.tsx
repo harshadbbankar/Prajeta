@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { useAuth } from "@/src/auth";
 import { fmtDate, todayISO } from "@/src/hooks";
 import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Chip, ChipRow, Field, Header, Loader, Row, Sheet, StatusBadge, Txt, money, useToast } from "@/src/ui";
@@ -12,6 +13,7 @@ export default function Finance() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const { user } = useAuth();
   const [tab, setTab] = useState("payments");
   const pays = useQuery({ queryKey: ["fin-pay"], queryFn: () => api<any[]>("/admin/payments"), enabled: tab === "payments" });
   const exp = useQuery({ queryKey: ["fin-exp"], queryFn: () => api<any>("/admin/expenses"), enabled: tab === "expenses" });
@@ -57,7 +59,7 @@ export default function Finance() {
               </Row>
               <Txt v="caption">{p.booking_ref} · {p.customer_name} · {p.method} · {fmtDate(p.created_at)} {p.razorpay_payment_id ? `· ${p.razorpay_payment_id}` : ""}</Txt>
               {p.refunded_amount ? <Txt v="caption" color={colors.error}>Refunded {money(p.refunded_amount)}</Txt> : null}
-              {["paid", "partially_refunded"].includes(p.status) ? <Btn small variant="outline" title="Refund" style={{ alignSelf: "flex-start" }} onPress={() => setSheet({ kind: "refund", id: p.id })} testID={`refund-button-${p.id}`} /> : null}
+              {["paid", "partially_refunded"].includes(p.status) && ["owner", "finance"].includes(user?.role ?? "") ? <Btn small variant="outline" title="Refund" style={{ alignSelf: "flex-start" }} onPress={() => setSheet({ kind: "refund", id: p.id })} testID={`refund-button-${p.id}`} /> : null}
             </Card>
           )) : null}
           {tab === "expenses" ? (

@@ -7,7 +7,7 @@ import { Platform } from "react-native";
 import { usesNativeTabs } from "@/src/navigation";
 import { fonts, useTheme } from "@/src/theme";
 
-export type TabDef = { name: string; title: string; icon: string; sf: string };
+export type TabDef = { name: string; title: string; icon: string; sf: string; hidden?: boolean };
 
 export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
   const { colors } = useTheme();
@@ -15,7 +15,7 @@ export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
     return (
       <NativeTabs tintColor={colors.brandPrimary}>
         {tabs.map((t) => (
-          <NativeTabs.Trigger key={t.name} name={t.name}>
+          <NativeTabs.Trigger key={t.name} name={t.name} hidden={t.hidden}>
             <NativeTabs.Trigger.Icon sf={t.sf as any} />
             <NativeTabs.Trigger.Label>{t.title}</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
@@ -45,6 +45,7 @@ export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
           name={t.name}
           options={{
             title: t.title,
+            href: t.hidden ? null : undefined,
             tabBarButtonTestID: `tab-${t.name}`,
             tabBarIcon: ({ color, focused, size }) => (
               <Ionicons name={(focused ? t.icon : `${t.icon}-outline`) as any} size={size - 2} color={color} />

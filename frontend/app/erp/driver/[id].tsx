@@ -72,6 +72,7 @@ export default function AdminDriver() {
               <Row>
                 {doc.has_file ? <Btn small variant="outline" title="View" icon="eye" testID={`admin-view-doc-${doc.doc_type}`} onPress={async () => WebBrowser.openBrowserAsync(await authedUrl(`/files/${doc.id}`))} /> : null}
                 <Btn small variant={doc.verified ? "outline" : "success"} title={doc.verified ? "Mark unverified" : "Verify"} loading={busy === doc.id} testID={`admin-verify-doc-${doc.doc_type}`} onPress={() => call(`documents/${doc.id}`, { verified: !doc.verified }, "Document updated", doc.id)} />
+                {doc.doc_type === "licence_renewal" ? <Btn small variant="outline" title="Reject" testID="admin-reject-renewal" onPress={() => call(`documents/${doc.id}`, { verified: false }, "Renewal rejected — driver notified", doc.id + "r")} /> : null}
               </Row>
             </View>
           )) : <Txt v="caption">No documents uploaded</Txt>}

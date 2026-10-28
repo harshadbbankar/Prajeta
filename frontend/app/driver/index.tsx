@@ -33,6 +33,11 @@ export default function DriverHome() {
   if (profile.isLoading) return <Loader />;
   const p = profile.data;
   const approved = p?.status === "APPROVED";
+  const licLeft = p?.licence_expiry ? Math.round((new Date(p.licence_expiry + "T00:00:00").getTime() - Date.now()) / 86400000) : null;
+  const expDocs = (p?.documents ?? [])
+    .filter((x: any) => ["identity", "police_verification", "address_proof"].includes(x.doc_type) && x.expiry)
+    .map((x: any) => ({ ...x, left: Math.round((new Date(x.expiry + "T00:00:00").getTime() - Date.now()) / 86400000) }))
+    .filter((x: any) => x.left <= 30);
   const active = (jobs.data ?? []).filter((j) => ["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status));
 
   const toggle = async () => {
@@ -105,6 +110,32 @@ export default function DriverHome() {
         refreshControl={<RefreshControl refreshing={offers.isRefetching} onRefresh={() => { profile.refetch(); refetchAll(); }} />}
         contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: (usesNativeTabs ? insets.bottom : 0) + space.xl }}
       >
+        {approved && licLeft !== null && licLeft <= 30 ? (
+          <Card testID="licence-warning-card" style={{ gap: space.sm, borderColor: licLeft < 0 ? colors.error : colors.warning, borderWidth: 1.5 }}>
+            <Txt v="h3" color={licLeft < 0 ? colors.error : colors.onSurface}>
+              {licLeft < 0 ? "Licence expired — jobs paused" : `Licence expires in ${licLeft} day(s)`}
+            </Txt>
+            <Txt v="caption">
+              {p.documents?.some((x: any) => x.doc_type === "licence_renewal")
+                ? "Renewed licence received — our team is verifying it."
+                : licLeft < 0
+                  ? "Upload your renewed licence. You can go online once our team verifies it."
+                  : "Upload your renewed licence early so your jobs are not interrupted."}
+            </Txt>
+            <Btn small title="Upload renewed licence" icon="cloud-upload" onPress={() => router.push("/driver-onboarding")} testID="licence-renew-button" />
+          </Card>
+        ) : null}
+        {approved && expDocs.length ? (
+          <Card testID="docs-warning-card" style={{ gap: space.sm, borderColor: expDocs.some((x: any) => x.left < 0) ? colors.error : colors.warning, borderWidth: 1.5 }}>
+            <Txt v="h3">{p.docs_expired?.length ? "Documents expired — jobs paused" : "Documents expiring soon"}</Txt>
+            {expDocs.map((x: any) => (
+              <Txt key={x.id} v="caption" style={{ color: colors.onSurface }}>
+                • {({ identity: "Identity proof", police_verification: "Police verification", address_proof: "Address proof" } as Record<string, string>)[x.doc_type]}: {x.left < 0 ? `expired ${-x.left} day(s) ago` : `expires in ${x.left} day(s)`}
+              </Txt>
+            ))}
+            <Btn small title="Upload valid documents" icon="cloud-upload" onPress={() => router.push("/driver-onboarding")} testID="docs-renew-button" />
+          </Card>
+        ) : null}
         {!approved ? (
           <Card testID="verification-status-card" style={{ gap: space.sm }}>
             <Row style={{ justifyContent: "space-between" }}>

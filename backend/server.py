@@ -23,6 +23,9 @@ from logic import compute_fare, confirm_booking, add_event, recompute_payment_st
 from seed import seed
 import driver_routes
 import admin_routes
+import staff_routes
+import asyncio
+from licence import licence_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -637,6 +640,7 @@ async def get_file(doc_id: str, user: dict = Depends(get_current_user)):
 app.include_router(api)
 app.include_router(driver_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(staff_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -651,6 +655,7 @@ async def startup():
     await db.booking_assignments.create_index([("booking_id", 1), ("status", 1)])
     await db.webhook_events.create_index("event_id", unique=True)
     await seed()
+    asyncio.create_task(licence_loop())
     try:
         await run_in_threadpool(init_storage)
     except Exception as e:

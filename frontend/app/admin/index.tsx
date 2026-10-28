@@ -5,7 +5,7 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
-import { ADMIN_ROLES, useAuth } from "@/src/auth";
+import { ADMIN_ROLES, can, useAuth } from "@/src/auth";
 import { useConfig } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
@@ -96,9 +96,10 @@ export default function AdminDashboard() {
               </Row>
             </Card>
             <Row style={{ flexWrap: "wrap" }}>
-              <Btn small title="Dispatch queue" icon="git-network" onPress={() => router.push("/admin/bookings")} testID="dash-dispatch-link" />
-              <Btn small variant="dark" title="Owner intelligence" icon="analytics" onPress={() => router.push("/erp/owner")} testID="dash-owner-link" />
-              <Btn small variant="outline" title="Verify drivers" icon="shield-checkmark" onPress={() => router.push("/admin/drivers")} testID="dash-drivers-link" />
+              {d.licences_expired && can(user.role, "licences") ? <Btn small variant="soft" title={`${d.licences_expired} licence(s) expired`} icon="id-card" onPress={() => router.push("/erp/licences")} testID="dash-licences-link" /> : null}
+              {can(user.role, "dispatch") ? <Btn small title="Dispatch queue" icon="git-network" onPress={() => router.push("/admin/bookings")} testID="dash-dispatch-link" /> : null}
+              {can(user.role, "owner") ? <Btn small variant="dark" title="Owner intelligence" icon="analytics" onPress={() => router.push("/erp/owner")} testID="dash-owner-link" /> : null}
+              {can(user.role, "drivers") ? <Btn small variant="outline" title="Verify drivers" icon="shield-checkmark" onPress={() => router.push("/admin/drivers")} testID="dash-drivers-link" /> : null}
             </Row>
           </View>
         </ScrollView>

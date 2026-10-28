@@ -28,6 +28,8 @@ export default function Onboarding() {
   const q = useQuery({ queryKey: ["driver-profile"], queryFn: () => api<any>("/driver/profile") });
   const [f, setF] = useState<any>(null);
   const [busy, setBusy] = useState("");
+  const [renewExpiry, setRenewExpiry] = useState("");
+  const [docExpiry, setDocExpiry] = useState<Record<string, string>>({});
   useEffect(() => {
     if (q.data && !f) setF(q.data);
   }, [q.data, f]);
@@ -70,7 +72,7 @@ export default function Onboarding() {
       const token = await getToken();
       const r = await uploadForm(`${BACKEND_URL}/api/driver/documents`, {
         headers: { Authorization: `Bearer ${token}` },
-        fields: { doc_type: docType, number: docType === "licence" ? f.licence_number ?? "" : "", expiry: docType === "licence" ? f.licence_expiry ?? "" : "" },
+        fields: { doc_type: docType, number: docType === "licence" ? f.licence_number ?? "" : "", expiry: docType === "licence" ? f.licence_expiry ?? "" : docType === "licence_renewal" ? renewExpiry : docExpiry[docType] ?? "" },
         files: { file: { uri: a.uri, name: a.name, mimeType: a.mimeType } },
       });
       const data = await r.json();
@@ -156,6 +158,7 @@ export default function Onboarding() {
           </ChipRow>
         </View>
         <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+          {f.status === "APPROVED" || f.licence_expired ? <RenewalCard f={f} renewExpiry={renewExpiry} setRenewExpiry={setRenewExpiry} busy={busy === "licence_renewal"} onUpload={() => upload("licence_renewal")} /> : null}
           <Txt v="h2">3. Documents</Txt>
           <Txt v="caption">JPG, PNG or PDF up to 8 MB. Stored privately. Uploading does not mean verified — our team reviews each document.</Txt>
           {DOCS.map((d) => {
@@ -166,8 +169,11 @@ export default function Onboarding() {
                   <Txt v="bodyBold" style={{ flex: 1 }}>{d.label}{d.required ? " *" : ""}</Txt>
                   {doc ? <StatusBadge status={doc.verified ? "APPROVED" : "UNDER_REVIEW"} /> : null}
                 </Row>
-                {doc ? <Txt v="caption">{doc.name}</Txt> : null}
-                {!locked || !doc?.verified ? (
+                {doc ? <Txt v="caption">{doc.name}{doc.expiry ? ` · valid till ${doc.expiry}` : ""}</Txt> : null}
+                {d.type !== "licence" ? (
+                  <Field placeholder="Valid till (YYYY-MM-DD, if printed)" value={docExpiry[d.type] ?? ""} onChangeText={(t) => setDocExpiry({ ...docExpiry, [d.type]: t })} testID={`onb-expiry-${d.type}`} />
+                ) : null}
+                {!locked || !doc?.verified || (d.type !== "licence" && (daysUntil(doc?.expiry) ?? 999) <= 30) ? (
                   <Btn small variant="outline" icon="cloud-upload" title={doc ? "Replace file" : "Upload file"} loading={busy === d.type} onPress={() => upload(d.type)} testID={`onb-upload-${d.type}`} />
                 ) : null}
               </Card>
@@ -190,5 +196,32 @@ export default function Onboarding() {
         </View>
       </KeyboardAwareScrollView>
     </View>
+  );
+}
+
+
+export const daysUntil = (iso?: string) => (iso ? Math.round((new Date(iso + "T00:00:00").getTime() - Date.now()) / 86400000) : null);
+
+function RenewalCard({ f, renewExpiry, setRenewExpiry, busy, onUpload }: { f: any; renewExpiry: string; setRenewExpiry: (v: string) => void; busy: boolean; onUpload: () => void }) {
+  const { colors } = useTheme();
+  const left = daysUntil(f.licence_expiry) ?? 999;
+  const renewal = f.documents?.find((x: any) => x.doc_type === "licence_renewal");
+  if (left > 30 && !renewal) return null;
+  return (
+    <Card testID="licence-renewal-card" style={{ gap: space.sm, borderColor: left < 0 ? colors.error : colors.warning, borderWidth: 1.5 }}>
+      <Txt v="h3">{left < 0 ? "Licence expired — upload renewal" : `Licence expires in ${left} day(s)`}</Txt>
+      {renewal ? (
+        <>
+          <Txt v="caption" color={colors.success}>Renewed licence uploaded (exp {renewal.expiry}). Waiting for verification.</Txt>
+          <Field label="Correct expiry (YYYY-MM-DD) to re-upload" placeholder="2045-12-31" value={renewExpiry} onChangeText={setRenewExpiry} testID="renewal-expiry-input" />
+          <Btn small variant="outline" icon="refresh" title="Replace upload" disabled={!/^\d{4}-\d{2}-\d{2}$/.test(renewExpiry)} loading={busy} onPress={onUpload} testID="renewal-replace-button" />
+        </>
+      ) : (
+        <>
+          <Field label="New licence expiry (YYYY-MM-DD)" placeholder="2045-12-31" value={renewExpiry} onChangeText={setRenewExpiry} testID="renewal-expiry-input" />
+          <Btn small icon="cloud-upload" title="Upload renewed licence" disabled={!/^\d{4}-\d{2}-\d{2}$/.test(renewExpiry)} loading={busy} onPress={onUpload} testID="renewal-upload-button" />
+        </>
+      )}
+    </Card>
   );
 }

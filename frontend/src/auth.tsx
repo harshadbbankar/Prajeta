@@ -62,3 +62,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
 }
 
 export const useAuth = () => useContext(Ctx);
+
+const AREAS: Record<string, string[]> = {
+  dispatch: ["owner", "super_admin", "ops", "support"],
+  drivers: ["owner", "super_admin", "ops", "verification"],
+  licences: ["owner", "super_admin", "ops", "verification"],
+  owner: ["owner", "super_admin", "finance"],
+  finance: ["owner", "super_admin", "finance"],
+  support: ["owner", "super_admin", "ops", "support"],
+  admin: ["owner", "super_admin"],
+};
+
+/** Which ERP areas a staff role may open (backend enforces the same rules). */
+export const can = (role: string | undefined, area: keyof typeof AREAS | string) => !!role && (AREAS[area] ?? []).includes(role);

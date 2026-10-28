@@ -44,8 +44,8 @@ async def metrics(bookings: list, s, e, settings: dict) -> dict:
     revenue = sum(b["fare"].get("subtotal", 0) - b["fare"].get("discount", 0) for b in completed)
     payouts = sum(b.get("driver_payout", 0) + b.get("driver_adjustment", 0) for b in completed)
     pays = [p async for p in db.payments.find({"booking_id": {"$in": list(ids)}, "status": {"$in": ["paid", "refunded", "partially_refunded", "refund_pending"]}}, {"_id": 0})]
-    collections = sum(p["amount"] for p in pays)
     refunds = sum(p.get("refunded_amount", 0) for p in pays)
+    collections = sum(p["amount"] for p in pays) - refunds
     online = sum(p["amount"] for p in pays if p["method"] == "razorpay")
     gateway_fees = int(online * settings.get("gateway_fee_percent", 2) / 100)
     receivables = sum(b.get("balance_due", 0) for b in completed)
@@ -116,6 +116,7 @@ async def dashboard(period: str = "30d", city_id: str = "", service_id: str = ""
         "customers_total": await db.users.count_documents({"role": "customer"}),
         "open_tickets": await db.support_tickets.count_documents({"status": {"$ne": "resolved"}}),
         "new_enquiries": await db.corporate_enquiries.count_documents({"status": "NEW"}),
+        "licences_expired": await db.driver_profiles.count_documents({"licence_expired": True}),
         "trend": [{"date": k, **v} for k, v in sorted(trend.items())], "status_breakdown": dict(statuses),
         "period_start": s.isoformat(), "period_end": e.isoformat(),
     }
@@ -204,13 +205,38 @@ async def verify_doc(user_id: str, doc_id: str, body: DocIn, user: dict = Depend
     if not p:
         raise HTTPException(404, "Driver not found")
     docs = p.get("documents", [])
-    for d in docs:
-        if d["id"] == doc_id:
-            d["verified"] = body.verified
-            d["verified_by"] = user["id"]
-            if body.expiry:
-                d["expiry"] = body.expiry
-    upd = {"documents": docs}
+    target = next((d for d in docs if d["id"] == doc_id), None)
+    if not target:
+        raise HTTPException(404, "Document not found")
+    upd = {}
+    if target["doc_type"] == "licence_renewal" and not body.verified:
+        docs = [d for d in docs if d["id"] != doc_id]
+        await notify(user_id, "Licence renewal not accepted", "Please upload a clear copy of your renewed licence with the correct expiry date.")
+    elif target["doc_type"] == "licence_renewal" and body.verified:
+        expiry = body.expiry or target.get("expiry")
+        if not expiry or expiry < now_iso()[:10]:
+            raise HTTPException(400, "Enter the renewed licence's valid future expiry date")
+        renewed = {**target, "doc_type": "licence", "verified": True, "verified_by": user["id"], "expiry": expiry}
+        docs = [d for d in docs if d["doc_type"] not in ("licence", "licence_renewal")] + [renewed]
+        upd.update({"licence_expiry": expiry, "licence_expired": False, "licence_reminders_sent": []})
+        await notify(user_id, "Licence renewed", "Your renewed licence is verified. You can go online again.")
+    else:
+        for d in docs:
+            if d["id"] == doc_id:
+                d["verified"] = body.verified
+                d["verified_by"] = user["id"]
+                if body.expiry:
+                    d["expiry"] = body.expiry
+        if target["doc_type"] == "licence" and body.expiry:
+            upd.update({"licence_expiry": body.expiry, "licence_expired": body.expiry < now_iso()[:10],
+                        "licence_reminders_sent": []})
+    upd["documents"] = docs
+    exp = target.get("expiry") if not body.expiry else body.expiry
+    if target["doc_type"] in ("identity", "police_verification") and body.verified and (not exp or exp >= now_iso()[:10]):
+        remaining = [t for t in p.get("docs_expired", []) if t != target["doc_type"]]
+        upd["docs_expired"] = remaining
+        if target["doc_type"] in p.get("docs_expired", []):
+            await notify(user_id, "Document verified", "Your renewed document is verified. You can go online again." if not remaining else "Document verified.")
     if body.police_verification:
         upd["police_verification"] = body.police_verification
     if p["status"] == "SUBMITTED":
@@ -629,8 +655,10 @@ async def record_payout(body: PayoutIn, user: dict = Depends(FINANCE)):
 
 # ------------------------------------------------------------------ support & enquiries
 @router.get("/tickets")
-async def tickets(status: str = "", user: dict = Depends(SUPPORT)):
+async def tickets(status: str = "", mine: bool = False, user: dict = Depends(SUPPORT)):
     q = {"status": status} if status else {}
+    if mine:
+        q["assigned_to_id"] = user["id"]
     return [t async for t in db.support_tickets.find(q, {"_id": 0}).sort("updated_at", -1).limit(300)]
 
 
@@ -645,8 +673,9 @@ async def ticket_reply(tid: str, body: AdminReplyIn, user: dict = Depends(SUPPOR
     if not t:
         raise HTTPException(404, "Ticket not found")
     await db.support_tickets.update_one({"id": tid}, {"$push": {"messages": {
-        "by": "support", "name": user.get("name"), "text": body.text, "internal": body.internal, "at": now_iso()}},
-        "$set": {"updated_at": now_iso(), "status": "in_progress", "assigned_to": t.get("assigned_to") or user.get("name")}})
+        "by": "support", "by_id": user["id"], "name": user.get("name"), "text": body.text, "internal": body.internal, "at": now_iso()}},
+        "$set": {"updated_at": now_iso(), "status": "in_progress", "assigned_to": t.get("assigned_to") or user.get("name"),
+                 "assigned_to_id": t.get("assigned_to_id") or user["id"]}})
     if not body.internal:
         await notify(t["user_id"], "Support replied", f"{t['ref']}: {body.text[:80]}")
     return {"ok": True}

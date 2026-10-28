@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 3: Staff performance + document expiry reminders/pausing. Backend: 16/16 new tests passed (after 1 fix in licence.py) plus 55/55 regression tests from iterations 1-2. CRITICAL bug found and FIXED: doc_check() Mongo query 'documents.expiry': {'$nin': [None, '']} skips any driver who has at least one document without an expiry (array $nin semantics). Ravi has identity expiry=None, so his police_verification reminder (20 days) was never sent. 7 driver profiles were excluded. Changed the query to $elemMatch; Ravi now gets exactly one reminder and repeated run-check calls send no duplicates. Frontend (375x667): ERP More -> Staff performance leaderboard works; all 7 period chips load; owner/ops cards show metric values. Document expiry screen shows doc-type labels (Identity proof / Police verification / Driving licence) with paused status. Ravi home shows docs-warning-card (police verification 20 days). Onboarding has onb-expiry-identity/police_verification/address_proof inputs. Demo Driver 1 home shows 'Documents expired — jobs paused'; the online toggle is blocked with a toast; the renew button opens onboarding. Ops does not see Staff performance in More. No deprecated Expo packages found in the changed files.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "licence.doc_check (GET /api/admin/licences, POST /api/admin/licences/run-check, background loop)", "issue": "FIXED by testing agent: query used 'documents.expiry': {'$nin':[None,'']}, which excludes profiles where ANY doc has no expiry. ID/police/address reminders and expired-doc pausing never ran for those drivers (Ravi included). Now uses {'documents': {'$elemMatch': {'expiry': {'$nin': [None, '']}}}}.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/admin/licences", "issue": "When a paused driver uploads a replacement identity/police doc (future expiry, still unverified), the old doc is replaced, so the row drops off the Document expiry list (days_left > 60). The driver stays paused (docs_expired) but the verification team loses sight of them. Doc rows always return renewal_uploaded=false. Keep showing paused drivers with 'replacement uploaded — open to verify'."},
+      {"endpoint": "GET /api/admin/staff/performance", "issue": "The support_tickets filter only uses updated_at >= since (no < until), so prev_month/quarter periods count tickets updated after the period end. Also runs one bookings.find_one per booking_assign audit row (N+1), which will be slow for period=all."},
+      {"endpoint": "POST /api/admin/drivers/{id}/documents/{doc_id}", "issue": "Un-verifying (verified=false) an identity/police doc does not re-add it to docs_expired or pause the driver; there is no audit detail on which doc_type was verified."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "erp/performance Metric cards", "issue": "On a 375px screen the labels are cut off: 'TICKETS HA…', '1ST RESPO…', 'DOCS VERI…', 'REJECTED/…', 'AVG DISPAT…', 'QUOTES · F…'. Use shorter labels, 2 columns, or allow 2 lines.", "testID": "perf-tickets-*", "priority": "MEDIUM"},
+      {"component": "erp/performance direct deep link for ops", "issue": "Ops opening /erp/performance directly sees an endless-looking spinner (react-query retries the 403) and no 'not allowed' message or route guard. The backend correctly returns 403.", "testID": "perf-period-30d", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "erp/performance", "issues": ["Period chips are 36px tall (under the 44px touch-target minimum)"]},
+      {"screen": "driver/index docs-warning-card", "issues": ["Doc names come from the raw doc_type ('police verification', 'identity') instead of friendly labels ('Police verification certificate', 'Identity proof')"]},
+      {"screen": "erp/licences", "issues": ["Empty state still says 'No licences expiring…' though the screen now covers all documents; ErrorView has no onRetry"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_staff_perf_docs.py", "/app/backend/tests/test_licence_staff.py", "/app/backend/tests/test_prajeta_api.py", "/app/test_reports/pytest/iter3_results.xml", "/app/test_reports/pytest/iter3_regression.xml"],
+  "action_items": [
+    "Review the licence.py doc_check query fix ($elemMatch) and keep it",
+    "Keep paused drivers on the Document expiry list after they upload a replacement doc (show 'awaiting verification')",
+    "Fix the cut-off metric labels on the Staff performance cards at 375px width",
+    "Add an upper bound (< until) to the tickets query in staff_performance; avoid the N+1 bookings lookup",
+    "Use friendly doc labels in the driver docs-warning-card; make chips 44px tall; handle 403 on /erp/performance without retries"
+  ],
+  "critical_code_review_comments": [
+    "Mongo array $nin/$ne on 'arr.field' requires ALL elements to match. Use $elemMatch for 'any element has expiry'",
+    "admin_routes.py is 904 lines (over 700); consider splitting tickets/bookings/drivers into modules"
+  ],
+  "updated_files": ["/app/backend/licence.py", "/app/backend/tests/test_staff_perf_docs.py"],
+  "success_rate": {"backend": "100% (71/71) after fix; doc reminder test would fail without the fix", "frontend": "95% — all requested flows work; minor layout/design issues"},
+  "seed_data_creation": "Created TEST_ staff (deleted), TEST_ bookings (cancelled), TEST_perf ticket (resolved). Demo Driver 1 and Ravi profiles restored from snapshot (D1 identity expired + paused; Ravi police 2026-11-17, reminders_sent [30] after the post-fix check).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Demo Driver 1 (+917000000000) is NOT a demo phone; read the preview code from testID login-preview-code (or dev_code in the API response). Run pytest with EXPO_BACKEND_URL exported from EXPO_PUBLIC_BACKEND_URL and -n 0. System date is 2026-10-28.",
+  "rca_of_issue": "Ravi had no 'Police verification…' notification because his profile documents include identity with expiry None. db.driver_profiles.find({'documents.expiry': {'$nin': [None, '']}}) excludes any doc whose array contains a null expiry. Reproduced via a DB query that listed 7 excluded profiles; fixed with $elemMatch and verified with test_ravi_police_reminder_once."
+}

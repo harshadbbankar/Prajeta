@@ -3,21 +3,24 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAuth } from "@/src/auth";
+import { can, useAuth } from "@/src/auth";
 import { usesNativeTabs } from "@/src/navigation";
 import { radius, space, useTheme } from "@/src/theme";
 import { Btn, Txt } from "@/src/ui";
 
-const ITEMS: [string, string, string, string][] = [
-  ["analytics", "Owner intelligence", "KPIs, P&L, service & city profitability, insights", "/erp/owner"],
-  ["calculator", "Pricing simulator", "Model price, payout & volume scenarios", "/erp/simulator"],
-  ["checkbox", "Action plan", "Owner task register", "/erp/actions"],
-  ["cash", "Finance", "Payments, refunds, expenses, driver payouts", "/erp/finance"],
-  ["pricetags", "Tariffs & cities", "Service pricing, service areas", "/erp/tariffs"],
-  ["chatbubbles", "Support tickets", "Customer & driver tickets, incidents", "/erp/tickets"],
-  ["business", "Enquiries & corporate", "Corporate, monthly & permanent leads", "/erp/enquiries"],
-  ["person", "Customers", "Profiles, history, restrictions", "/erp/customers"],
-  ["settings", "Settings & audit", "Company details, WhatsApp, policies, audit log", "/erp/settings"],
+const ITEMS: [string, string, string, string, string][] = [
+  ["analytics", "Owner intelligence", "KPIs, P&L, service & city profitability, insights", "/erp/owner", "owner"],
+  ["calculator", "Pricing simulator", "Model price, payout & volume scenarios", "/erp/simulator", "owner"],
+  ["checkbox", "Action plan", "Owner task register", "/erp/actions", "owner"],
+  ["cash", "Finance", "Payments, refunds, expenses, driver payouts", "/erp/finance", "finance"],
+  ["pricetags", "Tariffs & cities", "Service pricing, service areas", "/erp/tariffs", "admin"],
+  ["chatbubbles", "Support tickets", "Customer & driver tickets, incidents", "/erp/tickets", "support"],
+  ["business", "Enquiries & corporate", "Corporate, monthly & permanent leads", "/erp/enquiries", "support"],
+  ["person", "Customers", "Profiles, history, restrictions", "/erp/customers", "support"],
+  ["settings", "Settings & audit", "Company details, WhatsApp, policies, audit log", "/erp/settings", "admin"],
+  ["people-circle", "Staff & access", "Add ops, finance, verification & support staff", "/erp/staff", "admin"],
+  ["id-card", "Document expiry", "Licence, ID & police papers expiring or paused", "/erp/licences", "licences"],
+  ["trophy", "Staff performance", "Tickets, approvals & dispatch times per staff", "/erp/performance", "admin"],
 ];
 
 export default function More() {
@@ -31,7 +34,7 @@ export default function More() {
         <Txt v="caption">{user?.name} · {user?.role}</Txt>
       </View>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.sm, paddingBottom: (usesNativeTabs ? insets.bottom : 0) + space.xl }}>
-        {ITEMS.map(([icon, title, sub, href]) => (
+        {ITEMS.filter((i) => can(user?.role, i[4])).map(([icon, title, sub, href]) => (
           <Pressable key={href} testID={`more-${href.split("/").pop()}`} onPress={() => router.push(href as any)} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md, borderRadius: radius.md, backgroundColor: pressed ? colors.surfaceTertiary : colors.surfaceSecondary })}>
             <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
               <Ionicons name={icon as any} size={20} color={colors.brandPrimary} />

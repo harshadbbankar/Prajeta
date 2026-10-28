@@ -13,7 +13,8 @@ export default function Tickets() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [status, setStatus] = useState("open");
-  const q = useQuery({ queryKey: ["admin-tickets", status], queryFn: () => api<any[]>(`/admin/tickets?status=${status}`) });
+  const [mine, setMine] = useState(false);
+  const q = useQuery({ queryKey: ["admin-tickets", status, mine], queryFn: () => api<any[]>(`/admin/tickets?status=${status}&mine=${mine}`) });
   const [sel, setSel] = useState<any>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +48,7 @@ export default function Tickets() {
       <Header title="Support & incidents" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>
+          <Chip label="Assigned to me" icon="person" selected={mine} onPress={() => setMine(!mine)} testID="tickets-filter-mine" />
           {[["open", "Open"], ["in_progress", "In progress"], ["resolved", "Resolved"], ["", "All"]].map(([k, l]) => <Chip key={l} label={l} selected={status === k} onPress={() => setStatus(k)} testID={`tickets-filter-${l.toLowerCase().replace(/ /g, "-")}`} />)}
         </ChipRow>
       </View>

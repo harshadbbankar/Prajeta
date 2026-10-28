@@ -91,8 +91,12 @@ async def submit(user: dict = Depends(require_driver)):
 @router.post("/documents")
 async def upload_document(doc_type: str = Form(...), number: str = Form(""), expiry: str = Form(""),
                           file: UploadFile = File(...), user: dict = Depends(require_driver)):
-    if doc_type not in ("licence", "identity", "address_proof", "police_verification", "photo"):
+    if doc_type not in ("licence", "identity", "address_proof", "police_verification", "photo", "licence_renewal"):
         raise HTTPException(400, "Unknown document type")
+    if doc_type == "licence_renewal" and (not expiry or expiry < now_iso()[:10]):
+        raise HTTPException(400, "Enter the renewed licence's future expiry date (YYYY-MM-DD)")
+    if doc_type in ("identity", "police_verification", "address_proof") and expiry and expiry < now_iso()[:10]:
+        raise HTTPException(400, "This document has already expired. Upload a currently valid copy.")
     ctype = (file.content_type or "").lower()
     if ctype not in ALLOWED_MIME:
         raise HTTPException(400, "Upload a JPG, PNG, WEBP or PDF file")
@@ -121,7 +125,14 @@ async def set_online(body: OnlineIn, user: dict = Depends(require_driver)):
     p = await my_profile(user)
     if body.online and p["status"] != "APPROVED":
         raise HTTPException(400, "You can go online after your profile is approved")
+    if body.online and (p.get("licence_expired") or (p.get("licence_expiry") and p["licence_expiry"] < now_iso()[:10])):
+        raise HTTPException(400, "Your licence has expired. Upload your renewed licence to go online.")
+    if body.online and p.get("docs_expired"):
+        raise HTTPException(400, "Some documents have expired (" + ", ".join(t.replace("_", " ") for t in p["docs_expired"]) + "). Upload valid copies to go online.")
     await db.driver_profiles.update_one({"user_id": user["id"]}, {"$set": {"online": body.online}})
+    if not body.online:
+        await db.booking_assignments.update_many({"driver_id": user["id"], "status": "OFFERED", "mode": "broadcast"},
+                                                 {"$set": {"status": "WITHDRAWN"}})
     if body.online:
         async for b in db.bookings.find({"status": "AWAITING_ASSIGNMENT", "city_id": p["city_id"]}, {"_id": 0}):
             await broadcast_offers(b)

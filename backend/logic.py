@@ -126,6 +126,11 @@ async def driver_eligibility(profile: dict, booking: dict, require_online: bool 
         return "Driving licence has expired"
     if not any(d.get("doc_type") == "licence" and d.get("verified") for d in profile.get("documents", [])):
         return "Driving licence document not verified"
+    if profile.get("docs_expired"):
+        return "Expired documents: " + ", ".join(t.replace("_", " ") for t in profile["docs_expired"])
+    for d in profile.get("documents", []):
+        if d.get("doc_type") in ("identity", "police_verification") and d.get("expiry") and d["expiry"] < today:
+            return f"{d['doc_type'].replace('_', ' ').title()} document has expired"
     if await driver_conflict(profile["user_id"], booking):
         return "Driver has a conflicting assignment"
     return None

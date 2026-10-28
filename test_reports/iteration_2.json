@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 2: licence reminders/pausing, licence renewal, staff management, role scoping, tickets mine filter, plus frontend role-filtered ERP. New pytest suite /app/backend/tests/test_licence_staff.py (34 tests) + iteration-1 regression suite (21 tests): 55/55 pass after fixing my own test bugs (wrong ticket reply field name/collection) and a test-isolation artifact (see rca_of_issue). Frontend (375x667 web preview) checked for owner, finance, verification, support, paused staff, Demo Driver 2 (10 days left) and Demo Driver 3 (expired): all requested flows work. No blocking bugs. Gaps found: no re-upload/reject path for a licence renewal, ERP screens show no error when a role gets 403, and super_admin is shown refund actions that the backend blocks.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/payments/{pid}/refund", "issue": "Only owner and finance can refund (admin_routes.py:559), but the frontend 'finance' area and the FINANCE dependency include super_admin. A super_admin sees Refund buttons and gets 403."},
+      {"endpoint": "POST /api/admin/drivers/{uid}/documents/{doc_id} (licence_renewal, verified:false)", "issue": "Rejecting a renewal only sets verified=false. The driver gets no notification and the renewal doc stays, so /admin/licences keeps showing renewal_uploaded=true. Combined with the frontend RenewalCard (it hides the upload once any renewal exists), the driver cannot re-upload a corrected renewal."},
+      {"endpoint": "POST /api/driver/online {online:false}", "issue": "Going offline (or being paused by any path other than the first licence_check transition) does not withdraw existing OFFERED broadcast offers. accept_offer calls driver_eligibility without require_online, so an offline driver can still accept until the offer expires (30 min). Pre-existing, low impact."},
+      {"endpoint": "GET /api/admin/dashboard", "issue": "This is ANY_STAFF, so verification and support staff see financial KPIs (GBV, collections, receivables). That goes against 'each role sees only its own ERP areas'. Also, collections include payments of cancelled bookings, gross of refunds, while GBV excludes cancelled bookings, so collections (Rs 48,096) shows higher than GBV (Rs 31,160)."},
+      {"endpoint": "GET /api/admin/licences", "issue": "Runs licence_check() (writes and notifications) on every GET. Works, but a side effect on a GET request."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "erp/staff.tsx, erp/licences.tsx (and other ERP screens)", "issue": "There is no route guard and no q.isError state. A finance user who opens /erp/staff directly sees the 'Staff & access' header with an Add button and an empty list instead of a 'no access' message (the API returns 403).", "testID": "add-staff-button", "priority": "MEDIUM"},
+      {"component": "driver-onboarding RenewalCard", "issue": "Once any licence_renewal doc exists, the card only shows 'Waiting for verification'. There is no way to replace a wrong upload or see that it was rejected.", "testID": "licence-renewal-card", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "driver/index -> driver-onboarding", "issues": ["Tapping 'Upload renewed licence' (licence-renew-button) opens onboarding at the top. The renewal card sits below the vehicle, services and availability sections, so the driver has to scroll to find it. Scroll to the card or put it at the top.", "The driver home licence-warning-card still says 'Upload renewed licence' after a renewal is uploaded and waiting for verification."]},
+      {"screen": "erp/staff", "issues": ["Toast overlays the header and hides the Add button for about 2s.", "In the add-staff sheet the role chips scroll sideways and 'Finance' / 'Super Admin' are cut off at 375px. A wrapping layout would make all roles visible."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_licence_staff.py", "/app/backend/tests/test_prajeta_api.py", "/app/test_reports/pytest/pytest_iter2.xml"],
+  "action_items": [
+    "Add a reject or re-upload path for licence renewals: notify the driver on reject, remove or flag the rejected licence_renewal doc, and show the upload form again in RenewalCard when the renewal was rejected.",
+    "Make refund roles consistent: either allow super_admin in POST /admin/payments/{pid}/refund or hide refund for super_admin in the frontend.",
+    "Add an error/no-access state (q.isError -> 403 message) or a role route guard on ERP screens (erp/staff, erp/licences, erp/finance, etc.).",
+    "Optional: limit /admin/dashboard financial KPIs to owner, super_admin and finance; withdraw OFFERED offers when a driver goes offline; scroll driver-onboarding to the renewal card when opened from the licence warning."
+  ],
+  "critical_code_review_comments": [
+    "Seed data inconsistency: the Demo Driver 2/3 licence doc has expiry 2030-01-01 while profile licence_expiry is 2026-11-07 / 2026-10-26.",
+    "driver/index.tsx licLeft uses the device's local midnight while the backend uses server date.today(), so the day count can be off by one around midnight in IST vs UTC.",
+    "staff.tsx open(): s.phone.slice(3) assumes the +91 prefix (ok for now)."
+  ],
+  "updated_files": ["/app/backend/tests/test_licence_staff.py (new)"],
+  "success_rate": {"backend": "100% (55/55 incl. regression)", "frontend": "100% of requested flows; 2 medium UX gaps"},
+  "seed_data_creation": "TEST_ staff users created during tests were deleted. Demo Driver 3's profile is snapshotted and restored after the renewal test, and stray OFFERED offers are withdrawn.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: export EXPO_BACKEND_URL=$(grep EXPO_PUBLIC_BACKEND_URL /app/frontend/.env | cut -d= -f2); pytest /app/backend/tests -n 0. The OTP rate limit is 5 sends per 10 min per phone; each full run uses about 2 owner sends, so do not run more than twice in 10 minutes. test_licence_staff.py restores D3 (+917000000002) to expired after renewing it. Server date in this env is 2026-10-28.",
+  "rca_of_issue": "One mid-session failure was caused by testing, not the app. The renewal test briefly put D3 online, so broadcast_offers created an OFFERED offer. The teardown then restored the expired profile but left the offer, and licence_check only withdraws offers on the first expiry transition. Fixed by also withdrawing D3 offers in the teardown. This also shows the minor backend gap that going offline does not withdraw offers."
+}
