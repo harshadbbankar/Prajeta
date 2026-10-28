@@ -83,7 +83,7 @@ export function Btn({
 }: {
   title: string;
   onPress?: () => void;
-  variant?: "primary" | "dark" | "outline" | "ghost" | "soft" | "success";
+  variant?: "primary" | "dark" | "outline" | "ghost" | "soft" | "success" | "danger";
   icon?: string;
   loading?: boolean;
   disabled?: boolean;
@@ -100,6 +100,7 @@ export function Btn({
     ghost: ["transparent", colors.onSurface, "transparent"],
     soft: [colors.brandTertiary, colors.onBrandTertiary, colors.brandTertiary],
     success: [colors.success, colors.onSuccess, colors.success],
+    danger: [colors.error, colors.onError, colors.error],
   }[variant];
   const anim = (to: number) => Animated.spring(scale, { toValue: to, useNativeDriver: Platform.OS !== "web", speed: 40, bounciness: 4 }).start();
   return (

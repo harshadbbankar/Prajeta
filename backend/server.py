@@ -25,6 +25,7 @@ import driver_routes
 import admin_routes
 import staff_routes
 import tracking_routes
+import sos_routes
 import asyncio
 from licence import licence_loop
 
@@ -679,6 +680,7 @@ app.include_router(driver_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(staff_routes.router)
 app.include_router(tracking_routes.router)
+app.include_router(sos_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -696,6 +698,7 @@ async def startup():
     async for dp in db.driver_profiles.find({"status": "APPROVED"}, {"_id": 0, "user_id": 1}):
         await refresh_driver_badge(dp["user_id"])
     asyncio.create_task(licence_loop())
+    asyncio.create_task(sos_routes.offer_wave_loop())
     try:
         await run_in_threadpool(init_storage)
     except Exception as e:

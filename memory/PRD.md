@@ -20,6 +20,10 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 6 (2026-06)
+- SOS: customer (booking detail) and driver (trip screen) SOS button during live trips → sos_alerts (phone location if allowed, else driver last known); alerts owner/ops/support; ERP red dashboard banner + /erp/sos (call, acknowledge, resolve with note); public family page shows SOS banner; one active alert per booking side (unique partial index).
+- Nearest dispatch: broadcast offers in waves by distance to pickup (3 nearest now, next 5 +3 min, rest +6 min; badge = one wave earlier; first non-empty wave always immediate); background loop notifies later waves; driver offer shows km from pickup.
+
 ## Iteration 5 (2026-06)
 - Share trip link: customer shares no-login /live/{token} page (WhatsApp / copy / share sheet; stop sharing); public payload hides phones, OTP, address; ends with the trip.
 - Driver badges: Top Rated (4.5+, 5+ reviews), Gold Star (4.8+, 10+); recomputed per review + startup; badge holders see broadcast offers 5 min early (visible_at), others later; shown to customer, driver, ERP.

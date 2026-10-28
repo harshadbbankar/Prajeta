@@ -20,6 +20,7 @@ const ITEMS: [string, string, string, string, string][] = [
   ["settings", "Settings & audit", "Company details, WhatsApp, policies, audit log", "/erp/settings", "admin"],
   ["people-circle", "Staff & access", "Add ops, finance, verification & support staff", "/erp/staff", "admin"],
   ["id-card", "Document expiry", "Licence, ID & police papers expiring or paused", "/erp/licences", "licences"],
+  ["alert-circle", "SOS alerts", "Safety alerts raised during live trips", "/erp/sos", "dispatch"],
   ["map", "Live driver map", "Where every online driver is — find the nearest", "/erp/live-map", "dispatch"],
   ["star", "Driver ratings", "Top-rated drivers, customer reviews & low-rating alerts", "/erp/ratings", "drivers"],
   ["trophy", "Staff performance", "Tickets, approvals & dispatch times per staff", "/erp/performance", "admin"],

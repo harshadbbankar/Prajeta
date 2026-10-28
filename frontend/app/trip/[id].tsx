@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { LocationShare } from "@/src/components/LocationShare";
+import { SosButton } from "@/src/components/SosButton";
 import { fmtDate, fmtTime } from "@/src/hooks";
 import { radius, space, useTheme } from "@/src/theme";
 import { Btn, Card, Chip, Field, Header, KV, Loader, Row, Sheet, StatusBadge, Txt, money, useToast } from "@/src/ui";
@@ -72,6 +73,7 @@ export default function Trip() {
         </Card>
 
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status) ? <LocationShare bookingId={j.id} /> : null}
+        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status) ? <SosButton bookingId={j.id} role="driver" /> : null}
         {j.status === "ACCEPTED" ? (
           <View style={{ gap: space.md }}>
             <Btn variant="dark" title="Navigate to pickup" icon="navigate" onPress={navigate} testID="trip-navigate-button" />

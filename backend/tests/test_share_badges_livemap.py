@@ -162,7 +162,7 @@ class TestBadges:
         d = requests.get(f"{BASE_URL}/driver/reviews", headers=H(toks["driver"])).json()
         for k in ("badge", "badge_label", "next_badge", "priority_minutes"):
             assert k in d
-        assert d["priority_minutes"] == 5
+        assert d["priority_minutes"] == 3  # iter6: wave gap 3 min
         if d["badge"] is None:
             assert d["next_badge"]["key"] == "top"
         print("reviews:", d["average"], d["count"], d["badge"], d["next_badge"])
@@ -179,7 +179,9 @@ class TestBadges:
         assert a, "no broadcast assignment for demo driver"
         assert a["priority"] is False
         vis = datetime.fromisoformat(a["visible_at"])
-        assert 4 * 60 <= (vis - datetime.now(timezone.utc)).total_seconds() <= 5 * 60 + 5
+        if a["wave"] == 0:
+            pytest.skip("iter6: demo driver is among nearest (wave 0) - visible immediately")
+        assert 2 * 60 <= (vis - datetime.now(timezone.utc)).total_seconds() <= 6 * 60 + 5  # iter6 waves
         assert datetime.fromisoformat(a["expires_at"]) > vis
         offers = requests.get(f"{BASE_URL}/driver/offers", headers=H(toks["driver"])).json()
         assert not [x for x in offers if x["booking_id"] == b["id"]]
@@ -195,7 +197,8 @@ class TestBadges:
         pri = [r for r in rows if r["priority"]]
         if not pri:
             pytest.skip("no eligible online badge driver in bengaluru")
-        assert (datetime.fromisoformat(pri[0]["visible_at"]) - datetime.now(timezone.utc)).total_seconds() <= 1
+        # iter6: badge holder moves one wave earlier than its distance wave
+        assert pri[0]["wave"] <= 1 and (datetime.fromisoformat(pri[0]["visible_at"]) - datetime.now(timezone.utc)).total_seconds() <= 3 * 60 + 1
         requests.post(f"{BASE_URL}/bookings/{b['id']}/cancel", json={"reason": "TEST"}, headers=H(toks["customer"]))
 
 

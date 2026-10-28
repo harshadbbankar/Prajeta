@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration 6: SOS safety alerts and Auto Nearest Dispatch. Backend: the new suite test_sos_dispatch.py passed 20/20 (run with -n 0). It covers raise (403/400 rules, duplicate, device vs driver_last_known location, admin and customer notifications), GET my SOS, the admin list role matrix (finance and verification get 403), acknowledge/resolve rules, the sos_active flag being set and then cleared on the booking and on the public live page, and nearest-first waves with 11 TEST_ drivers (ranking, wave sizes 3/5/rest, badge moving one wave earlier, stale location going to wave 2, visible_at at +0/+3/+6 min, notified flags, hidden future offers, early accept returning 400, the background loop notifying due offers within about 30s). I updated 3 iteration-5 tests in test_share_badges_livemap.py that broke because of the intended design change (5 min priority became 3 min waves); now 18 pass and 1 is skipped. Frontend (390x844): the customer SOS flow (button, sheet, note, send, status card, 'Ops Manager (Demo) is handling your SOS' after ERP acknowledge) works. The driver SOS on /trip works. The ERP dashboard sos-banner goes to /erp/sos, and the More menu item more-sos works too. Filters, map, call buttons, acknowledge and resolve all work; the resolve button stays disabled until a note is typed. public-sos-banner shows on /live/{token}. offer-distance shows '0.7 km from you · you're among the nearest'. All SOS alerts I created are resolved and the TEST_ drivers and bookings are cleaned up.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "logic.broadcast_offers", "issue": "No wave-0 fallback. If no eligible driver has a fresh (<30 min) location, every offer lands in wave 2 (badge holders in wave 1), so nobody sees the booking for 3-6 minutes even when there is no competition. Reproduced: Bengaluru badge driver with a stale location got visible_at +180s. Suggest shifting waves so the lowest non-empty wave becomes visible right away."},
+      {"endpoint": "POST /api/bookings/{id}/sos", "issue": "Duplicate check is find-then-insert, not atomic. Two quick taps can create 2 OPEN alerts from the same side. Low risk because the UI disables the button while busy."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SosButton send()", "issue": "The app never sends the device lat/lng; the body is only {note}. A customer SOS falls back to the driver's last known location, which was 6+ hours old in the test (ERP showed 'Driver's last known location · 3:27 am'). Get the current position with expo-location when permission is granted and send lat/lng. Reference: /app/frontend/src/components/SosButton.tsx:28", "testID": "sos-confirm-button", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/erp/sos", "issues": [
+        "The 'Customer Ananya' call button label wraps onto 2 lines at 390px width (small Btn in a row with flex:1).",
+        "The map marker always uses kind 'driver' (car icon), even when the location came from the customer's phone.",
+        "Resolved alerts still show a red, emphasized call-customer button; consider muting the call buttons for RESOLVED alerts.",
+        "The resolve note is not cleared when the sheet is closed without resolving, so it carries over to the next alert."
+      ]},
+      {"screen": "/live/{token} (pre-existing)", "issues": ["Shows 'Updated 383 min ago' next to 'Driver arriving in ~9 min'. A stale location still drives a confident ETA."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_sos_dispatch.py", "/app/backend/tests/setup_ui_iter6.py", "/app/backend/tests/setup_ui_offer_iter6.py", "/app/test_reports/pytest/pytest_iter6.xml"],
+  "action_items": [
+    "SosButton: request the location with expo-location (getCurrentPositionAsync, short timeout, then fall back) and send {note, lat, lng}. This matters most for customer-raised SOS.",
+    "broadcast_offers: if wave 0 is empty after ranking, promote the next non-empty wave to visible immediately (and set notified=true) so bookings are not hidden for 3-6 min.",
+    "Optional: make the SOS duplicate check atomic (unique partial index on booking_id+raised_by_role for OPEN/ACKNOWLEDGED, or find_one_and_update with upsert).",
+    "Minor UI: fix the call-button label wrapping on /erp/sos, use a customer-style marker for device locations, clear the resolve note when the sheet closes."
+  ],
+  "critical_code_review_comments": [
+    "sos_routes.raise_sos: the driver_location dict comprehension assumes the keys lat/lng/at all exist (KeyError risk if older docs lack 'at').",
+    "GET /api/bookings/{id}/sos returns 404 (not 403) for non-participants. That is acceptable and avoids leaking whether a booking exists.",
+    "GET /api/admin/sos?status=<unknown> silently returns an empty list; validating the status would be cleaner.",
+    "No deprecated Expo packages (expo-av, expo-barcode-scanner, expo-background-fetch) found."
+  ],
+  "updated_files": ["/app/backend/tests/test_sos_dispatch.py (new)", "/app/backend/tests/test_share_badges_livemap.py (3 assertions updated for the 3-min wave design)", "/app/backend/tests/setup_ui_iter6.py (new)", "/app/backend/tests/setup_ui_offer_iter6.py (new)"],
+  "success_rate": {"backend": "100% (20/20 new tests; iteration-5 regression 18 pass, 1 skip)", "frontend": "100% of the requested flows work; 1 medium functional gap (device location not sent)"},
+  "seed_data_creation": "Created a verification staff user TEST_Verif 9222222222 through POST /api/admin/staff. TEST_Wave driver profiles are deleted after each run. All SOS alerts I created are RESOLVED (active count 0) and TEST bookings are cancelled. Demo driver Ravi's last_location was set to 19.08,72.88 (fresh) and he is online.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0 (xdist makes module fixtures race on otp_requests). For UI, inject the token: localStorage auth_token = JSON.stringify(token); setup_ui_iter6.py writes the tokens to /tmp/ui_tokens.json. Sheets slide in, so wait about 1.5s after opening before clicking buttons inside them. Booking 6acad2db (PRJ-3YB57793) is still ACCEPTED, has share token 34mIMv7ABYyfCaRZ and no open SOS. The verification user is 9222222222 (preview mode, the code is shown).",
+  "rca_of_issue": "The iteration-5 badge-priority tests failed because the 5-min priority delay was intentionally replaced by 3-min distance waves (PRIORITY_MINUTES=3). This is not a regression; I updated those tests."
+}

@@ -10,7 +10,7 @@ from core import db, now, now_iso, new_id, notify, notify_admins
 
 ACTIVE_DRIVER_STATUSES = ["ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"]
 OFFER_MINUTES = 30
-PRIORITY_MINUTES = 5  # badge holders see broadcast offers this many minutes before everyone else
+PRIORITY_MINUTES = 3  # gap between offer waves; badge holders jump one wave ahead
 
 BADGES = {
     "gold": {"label": "Gold Star Driver", "min_rating": 4.8, "min_reviews": 10},
@@ -169,31 +169,70 @@ async def driver_eligibility(profile: dict, booking: dict, require_online: bool 
     return None
 
 
+WAVE_SIZES = (3, 5)       # nearest 3 drivers first, then the next 5, then everyone else
+FRESH_LOCATION_MINUTES = 30
+
+
 async def broadcast_offers(booking: dict):
-    """Offer a confirmed booking to every eligible online driver; first to accept wins."""
-    count = 0
+    """Offer a confirmed booking in nearest-first waves; first to accept wins.
+
+    Wave 0 (visible now): 3 nearest drivers. Wave 1 (+PRIORITY_MINUTES): next 5. Wave 2 (+2×): the rest,
+    including drivers with no recent location. Badge holders move up one wave.
+    """
+    from tracking_routes import geocode, haversine_km, ROAD_FACTOR  # lazy: tracking_routes imports logic
+    pickup = await geocode(booking.get("pickup", ""), booking["city_id"], booking.get("city_name", ""))
     t = now()
+    fresh_after = (t - timedelta(minutes=FRESH_LOCATION_MINUTES)).isoformat()
+    candidates = []
     async for p in db.driver_profiles.find({"status": "APPROVED", "online": True, "city_id": booking["city_id"]},
                                            {"_id": 0}):
-        # Badge holders get the offer immediately; others after the priority window
-        visible = t if p.get("badge") else t + timedelta(minutes=PRIORITY_MINUTES)
-        expires = (visible + timedelta(minutes=OFFER_MINUTES)).isoformat()
         if await driver_eligibility(p, booking, require_online=True):
             continue
-        exists = await db.booking_assignments.find_one({"booking_id": booking["id"], "driver_id": p["user_id"],
-                                                       "status": "OFFERED"})
-        if exists:
+        if await db.booking_assignments.find_one({"booking_id": booking["id"], "driver_id": p["user_id"],
+                                                  "status": "OFFERED"}):
             continue
+        loc = p.get("last_location")
+        km = None
+        if pickup and loc and loc.get("at", "") >= fresh_after:
+            km = round(haversine_km((loc["lat"], loc["lng"]), (pickup["lat"], pickup["lng"])) * ROAD_FACTOR, 1)
+        candidates.append((p, km))
+    candidates.sort(key=lambda c: (c[1] is None, c[1] or 0))
+    waves = []
+    for i, (p, km) in enumerate(candidates):
+        wave = 0 if km is not None and i < WAVE_SIZES[0] else 1 if km is not None and i < sum(WAVE_SIZES) else 2
+        if p.get("badge"):
+            wave = max(0, wave - 1)
+        waves.append(wave)
+    shift = min(waves) if waves else 0  # first non-empty wave is always visible immediately
+    count = 0
+    for i, ((p, km), wave) in enumerate(zip(candidates, waves)):
+        wave -= shift
+        visible = t + timedelta(minutes=PRIORITY_MINUTES * wave)
         await db.booking_assignments.insert_one({
             "id": new_id(), "booking_id": booking["id"], "driver_id": p["user_id"], "status": "OFFERED",
-            "mode": "broadcast", "payout": booking.get("driver_payout", 0), "expires_at": expires,
-            "visible_at": visible.isoformat(), "priority": bool(p.get("badge")), "created_at": now_iso(),
+            "mode": "broadcast", "payout": booking.get("driver_payout", 0),
+            "expires_at": (visible + timedelta(minutes=OFFER_MINUTES)).isoformat(),
+            "visible_at": visible.isoformat(), "wave": wave, "distance_km": km, "rank": i + 1,
+            "priority": bool(p.get("badge")), "notified": wave == 0, "created_at": now_iso(),
         })
-        if p.get("badge"):
-            await notify(p["user_id"], "Priority booking offer", f"{booking['service_name']} on {booking['date']} at {booking['time']}",
-                     booking["id"])
+        if wave == 0:
+            await notify(p["user_id"], "Priority booking offer" if p.get("badge") else "New booking offer near you",
+                         f"{booking['service_name']} on {booking['date']} at {booking['time']}"
+                         + (f" · {km} km from pickup" if km is not None else ""), booking["id"])
         count += 1
     return count
+
+
+async def notify_due_offers():
+    """Notify later-wave drivers once their offer becomes visible."""
+    t = now_iso()
+    async for a in db.booking_assignments.find({"status": "OFFERED", "notified": False, "visible_at": {"$lte": t}},
+                                               {"_id": 0}):
+        await db.booking_assignments.update_one({"id": a["id"]}, {"$set": {"notified": True}})
+        b = await db.bookings.find_one({"id": a["booking_id"], "status": {"$in": ["AWAITING_ASSIGNMENT", "ASSIGNED"]}},
+                                       {"_id": 0, "service_name": 1, "date": 1, "time": 1, "id": 1})
+        if b:
+            await notify(a["driver_id"], "New booking offer", f"{b['service_name']} on {b['date']} at {b['time']}", b["id"])
 
 
 async def confirm_booking(booking_id: str):

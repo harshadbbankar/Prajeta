@@ -53,7 +53,7 @@ export default function Ratings() {
             </View>
           }
           ListEmptyComponent={<Empty icon="star-outline" title="No reviews in this period" />}
-          ListFooterComponent={<Txt v="caption" style={{ marginTop: space.sm }}>Score = {d.score_formula}, so drivers with many good reviews rank above a single 5★. Badges (based on all-time reviews): Top Rated = ★4.5+ with 5+ reviews, Gold Star = ★4.8+ with 10+ reviews. Badge holders see broadcast offers 5 min before others.</Txt>}
+          ListFooterComponent={<Txt v="caption" style={{ marginTop: space.sm }}>Score = {d.score_formula}, so drivers with many good reviews rank above a single 5★. Badges (based on all-time reviews): Top Rated = ★4.5+ with 5+ reviews, Gold Star = ★4.8+ with 10+ reviews. Badge holders see broadcast offers one wave (3 min) earlier.</Txt>}
           renderItem={({ item: r, index }) => (
             <Card testID={`rating-driver-${index}`} onPress={() => router.push(`/erp/driver/${r.driver_id}` as any)} style={{ gap: space.sm, borderColor: index === 0 ? colors.warning : colors.border, borderWidth: index === 0 ? 1.5 : 1 }}>
               <Row style={{ justifyContent: "space-between" }}>

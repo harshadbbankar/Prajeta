@@ -286,7 +286,7 @@ async def public_live(token: str):
             driver = {"first_name": (p.get("name") or "Driver").split(" ")[0], "rating": p.get("rating"),
                       "badge_label": BADGES.get(p.get("badge") or "", {}).get("label"), "verified": True}
     t = await tracking_payload(b)
-    return {**base, "ended": False, "driver_info": driver, **t}
+    return {**base, "ended": False, "driver_info": driver, "sos_active": bool(b.get("sos_active")), **t}
 
 
 # ===================================================================== ERP LIVE MAP

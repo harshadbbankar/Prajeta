@@ -202,7 +202,7 @@ export default function DriverHome() {
                       <View testID={`offer-priority-${o.booking.ref}`}>
                       <Row gap={4}>
                         <Ionicons name="flash" size={14} color={colors.warning} />
-                        <Txt v="label" color={colors.warning}>Priority offer · only top-rated drivers see this now</Txt>
+                        <Txt v="label" color={colors.warning}>Priority offer · top-rated drivers see this first</Txt>
                       </Row>
                       </View>
                     ) : null}
@@ -218,6 +218,14 @@ export default function DriverHome() {
                     <Txt v="caption">
                       Pickup area: {o.booking.pickup_area || o.booking.city_id} {o.booking.destination ? `→ ${o.booking.destination}` : ""} · {o.booking.vehicle_type} {o.booking.transmission}
                     </Txt>
+                    {o.distance_km != null ? (
+                      <Row gap={4}>
+                        <Ionicons name="navigate" size={14} color={colors.success} />
+                        <Txt v="label" color={colors.success} testID={`offer-distance-${o.booking.ref}`}>
+                          {o.distance_km} km from you{o.rank && o.rank <= 3 ? " · you're among the nearest" : ""}
+                        </Txt>
+                      </Row>
+                    ) : null}
                     {o.booking.notes ? <Txt v="caption">Note: {o.booking.notes}</Txt> : null}
                     <Row style={{ justifyContent: "space-between" }}>
                       <Txt v="label">Your payout</Txt>

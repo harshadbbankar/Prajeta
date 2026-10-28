@@ -10,6 +10,7 @@ import { useConfig } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
 import { Bars, Btn, Card, Chip, ChipRow, ErrorView, Loader, Row, Stat, Txt, money } from "@/src/ui";
+import { SosBanner } from "@/src/components/SosBanner";
 
 export const PERIODS = [
   ["today", "Today"],
@@ -63,6 +64,7 @@ export default function AdminDashboard() {
             ))}
           </ChipRow>
           <View style={{ paddingHorizontal: space.lg, gap: space.lg }}>
+            <SosBanner />
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
               <Stat tone="dark" label="Gross booking value" value={money(d.gbv)} sub={`${d.bookings} bookings`} testID="kpi-gbv" />
               <Stat tone="brand" label="Collections" value={money(d.collections)} sub={`Receivable ${money(d.receivables)}`} testID="kpi-collections" />

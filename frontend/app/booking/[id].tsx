@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BACKEND_URL, api } from "@/src/api";
 import { LiveTracking } from "@/src/components/LiveTracking";
 import { ShareTrip } from "@/src/components/ShareTrip";
+import { SosButton } from "@/src/components/SosButton";
 import { downloadInvoice } from "@/src/invoice";
 import { TIME_SLOTS, fmtDate, fmtTime, nextDays, useConfig, usePolling } from "@/src/hooks";
 import { space, useTheme } from "@/src/theme";
@@ -153,6 +154,7 @@ export default function BookingDetail() {
         ) : null}
 
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <LiveTracking bookingId={b.id} /> : null}
+        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <SosButton bookingId={b.id} role="customer" /> : null}
 
         {b.driver ? (
           <Card testID="driver-card" style={{ gap: space.sm }}>
