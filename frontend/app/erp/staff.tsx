@@ -62,7 +62,7 @@ export default function Staff() {
   const editable = (s: any) => s.id !== user?.id && s.role !== "owner" && (s.role !== "super_admin" || user?.role === "owner");
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Staff & access" subtitle="Each role sees only its own ERP areas" right={<Btn small title="Add" icon="person-add" onPress={() => open()} testID="add-staff-button" />} />
       {q.isLoading ? <Loader /> : q.error ? <ErrorView message={(q.error as any).message} /> : (
         <FlatList

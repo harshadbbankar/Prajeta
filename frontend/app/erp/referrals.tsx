@@ -43,7 +43,7 @@ export default function Referrals() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Referral leaderboard" subtitle="Customers who bring friends to Prajeta" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>{PERIODS.map(([k, l]) => <Chip key={k} label={l} selected={period === k} onPress={() => setPeriod(k)} testID={`referrals-period-${k}`} />)}</ChipRow>

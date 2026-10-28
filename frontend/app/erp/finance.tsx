@@ -45,7 +45,7 @@ export default function Finance() {
   };
   const loading = (tab === "payments" && pays.isLoading) || (tab === "expenses" && exp.isLoading) || (tab === "payouts" && pout.isLoading);
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Finance" subtitle="Role-restricted · all changes audited" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>

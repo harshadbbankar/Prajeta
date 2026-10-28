@@ -22,7 +22,7 @@ export default function LiveTrip() {
   usePolling(poll, 10000, !!d && !d.ended);
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ paddingTop: insets.top + space.md, paddingHorizontal: space.lg, paddingBottom: space.md, backgroundColor: colors.surfaceInverse }}>
         <Row style={{ justifyContent: "space-between" }}>
           <View>

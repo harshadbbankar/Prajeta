@@ -142,15 +142,15 @@ export function Btn({
 }
 
 // ------------------------------------------------------------------ Layout
-export function Card({ children, style, onPress, testID, tone = "plain" }: PropsWithChildren<{ style?: StyleProp<ViewStyle>; onPress?: () => void; testID?: string; tone?: "plain" | "grey" | "dark" }>) {
+export function Card({ children, style, onPress, testID, tone = "plain" }: PropsWithChildren<{ style?: StyleProp<ViewStyle>; onPress?: () => void; testID?: string; tone?: "plain" | "grey" | "dark" | "tint" }>) {
   const { colors } = useTheme();
-  const bg = tone === "grey" ? colors.surfaceSecondary : tone === "dark" ? colors.surfaceInverse : colors.surface;
+  const bg = tone === "grey" ? colors.surfaceSecondary : tone === "dark" ? colors.surfaceInverse : tone === "tint" ? colors.tint : colors.surface;
   const st: ViewStyle = {
     backgroundColor: bg,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     padding: space.lg,
-    borderWidth: tone === "plain" ? 1 : 0,
-    borderColor: colors.border,
+    borderWidth: tone === "plain" || tone === "tint" ? 1 : 0,
+    borderColor: tone === "tint" ? colors.tintBorder : colors.border,
     ...(tone === "plain" ? { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 } : null),
   };
   if (onPress)
@@ -170,7 +170,7 @@ export function Row({ children, style, gap = space.sm, testID }: PropsWithChildr
   return <View testID={testID} style={[{ flexDirection: "row", alignItems: "center", gap }, style]}>{children}</View>;
 }
 
-export function Header({ title, subtitle, back = true, right }: { title: string; subtitle?: string; back?: boolean; right?: ReactNode }) {
+export function Header({ title, subtitle, back = true, right, eyebrow }: { title: string; subtitle?: string; back?: boolean; right?: ReactNode; eyebrow?: string }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   return (
@@ -192,13 +192,14 @@ export function Header({ title, subtitle, back = true, right }: { title: string;
           testID="header-back-button"
           hitSlop={10}
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
-          style={{ width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, alignItems: "center", justifyContent: "center" }}
+          style={{ width: 40, height: 40, borderRadius: radius.pill, alignItems: "center", justifyContent: "center" }}
         >
-          <Ionicons name="chevron-back" size={22} color={colors.onSurface} />
+          <Ionicons name="arrow-back" size={24} color={colors.onSurface} />
         </Pressable>
       ) : null}
       <View style={{ flex: 1 }}>
-        <Txt v="h2" numberOfLines={1}>
+        {eyebrow ? <Txt v="label">{eyebrow}</Txt> : null}
+        <Txt v="h2" numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 24 }}>
           {title}
         </Txt>
         {subtitle ? <Txt v="caption">{subtitle}</Txt> : null}
@@ -543,8 +544,10 @@ export function Stat({ label, value, sub, testID, tone }: { label: string; value
       style={{
         flexGrow: 1,
         flexBasis: "45%",
-        backgroundColor: dark ? colors.surfaceInverse : colors.surfaceSecondary,
-        borderRadius: radius.md,
+        backgroundColor: dark ? colors.surfaceInverse : colors.surface,
+        borderWidth: 1,
+        borderColor: dark ? colors.surfaceInverse : colors.border,
+        borderRadius: radius.lg,
         padding: space.md,
         gap: 4,
       }}
@@ -565,7 +568,297 @@ export function Stat({ label, value, sub, testID, tone }: { label: string; value
 }
 
 export const useScreenStyles = makeStyles((c) => ({
-  root: { flex: 1, backgroundColor: c.surface },
-  rootGrey: { flex: 1, backgroundColor: c.surfaceSecondary },
+  root: { flex: 1, backgroundColor: c.canvas },
+  rootGrey: { flex: 1, backgroundColor: c.canvas },
   pad: { padding: space.lg, gap: space.lg },
 }));
+
+// ------------------------------------------------------------------ Executive Chauffeur (Stitch) building blocks
+type TagTone = "dark" | "success" | "warn" | "tint" | "brand" | "outline" | "info";
+export function Tag({ label, tone = "tint", icon, testID }: { label: string; tone?: TagTone; icon?: string; testID?: string }) {
+  const { colors } = useTheme();
+  const [bg, fg, bd] = {
+    dark: [colors.surfaceInverse, colors.onSurfaceInverse, colors.surfaceInverse],
+    success: [colors.successSoft, colors.successText, colors.successBorder],
+    warn: [colors.warningSoft, colors.warningText, colors.warningBorder],
+    tint: [colors.tint, colors.onTint, colors.tintBorder],
+    brand: [colors.brandTertiary, colors.brandPrimary, colors.errorBorder],
+    outline: [colors.surface, colors.onSurface, colors.borderStrong],
+    info: [colors.infoSoft, colors.info, colors.infoBorder],
+  }[tone];
+  return (
+    <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: bg, borderColor: bd, borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3 }}>
+      {icon ? <Ionicons name={icon as any} size={11} color={fg} /> : null}
+      <Text style={{ color: fg, fontFamily: fonts.bold, fontSize: 10, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</Text>
+    </View>
+  );
+}
+
+export function IconTile({ icon, size = 40, tone = "tint", color }: { icon: string; size?: number; tone?: "tint" | "dark" | "success" | "brand" | "plain"; color?: string }) {
+  const { colors } = useTheme();
+  const [bg, fg] = {
+    tint: [colors.tint, colors.onSurface],
+    dark: [colors.surfaceInverse, colors.onSurfaceInverse],
+    success: [colors.successSoft, colors.successText],
+    brand: [colors.brandTertiary, colors.brandPrimary],
+    plain: [colors.surface, colors.onSurface],
+  }[tone];
+  return (
+    <View style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: bg, alignItems: "center", justifyContent: "center", borderWidth: tone === "plain" ? 1 : 0, borderColor: colors.border }}>
+      <Ionicons name={icon as any} size={Math.round(size * 0.5)} color={color ?? fg} />
+    </View>
+  );
+}
+
+/** Section heading used between cards ("Driver Services", "Recent Settlements"). */
+export function SectionHead({ title, sub, right, testID }: { title: string; sub?: string; right?: ReactNode; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Row testID={testID} style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+      <View style={{ flex: 1 }}>
+        <Txt v="h2" style={{ fontFamily: fonts.bold }}>{title}</Txt>
+        {sub ? <Txt v="caption" color={colors.muted}>{sub}</Txt> : null}
+      </View>
+      {right}
+    </Row>
+  );
+}
+
+/** Icon + title row heading inside a card ("Trip Specifications"). */
+export function CardTitle({ icon, title, sub, right }: { icon?: string; title: string; sub?: string; right?: ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+      <Row style={{ flex: 1, alignItems: "flex-start" }}>
+        {icon ? <Ionicons name={icon as any} size={20} color={colors.onSurface} style={{ marginTop: 2 }} /> : null}
+        <View style={{ flex: 1 }}>
+          <Txt v="h3" style={{ fontFamily: fonts.bold, fontSize: 17 }}>{title}</Txt>
+          {sub ? <Txt v="caption">{sub}</Txt> : null}
+        </View>
+      </Row>
+      {right}
+    </Row>
+  );
+}
+
+/** Bordered selectable box (Stitch segmented choice). Selected = solid dark. */
+export function OptionBox({ title, sub, selected, onPress, testID, icon, badge, style }: { title: string; sub?: string; selected?: boolean; onPress?: () => void; testID?: string; icon?: string; badge?: string; style?: StyleProp<ViewStyle> }) {
+  const { colors } = useTheme();
+  const fg = selected ? colors.onSurfaceInverse : colors.onSurface;
+  return (
+    <Pressable
+      testID={testID}
+      onPress={() => {
+        haptic();
+        onPress?.();
+      }}
+      style={({ pressed }) => [
+        {
+          flexGrow: 1,
+          flexBasis: 0,
+          minHeight: 48,
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: selected ? colors.surfaceInverse : colors.borderStrong,
+          backgroundColor: selected ? colors.surfaceInverse : colors.surface,
+          paddingHorizontal: space.md,
+          paddingVertical: space.sm,
+          justifyContent: "center",
+          opacity: pressed ? 0.85 : 1,
+        },
+        style,
+      ]}
+    >
+      {badge ? (
+        <View style={{ position: "absolute", top: -9, right: 8, backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: 6, paddingVertical: 1, borderWidth: 1, borderColor: colors.surfaceInverse }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 8, letterSpacing: 0.4, color: colors.onSurface }}>{badge}</Text>
+        </View>
+      ) : null}
+      <Row gap={6} style={{ justifyContent: sub ? "flex-start" : "center" }}>
+        {icon ? <Ionicons name={(selected ? "checkmark-circle" : icon) as any} size={16} color={fg} /> : null}
+        <Text numberOfLines={2} style={{ fontFamily: fonts.semibold, fontSize: 14, color: fg, textAlign: sub ? "left" : "center", flexShrink: 1 }}>{title}</Text>
+      </Row>
+      {sub ? <Text style={{ fontFamily: fonts.medium, fontSize: 11, color: selected ? colors.surfaceTertiary : colors.muted, marginTop: 2 }}>{sub}</Text> : null}
+    </Pressable>
+  );
+}
+
+/** Red SOS pill used in every top bar. */
+export function SosPill({ onPress, testID = "sos-pill" }: { onPress: () => void; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      testID={testID}
+      onPress={() => {
+        haptic("heavy");
+        onPress();
+      }}
+      style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 14, borderRadius: radius.pill, backgroundColor: pressed ? colors.brandPrimaryPressed : colors.brandPrimary, flexDirection: "row", alignItems: "center", gap: 6 })}
+    >
+      <Ionicons name="shield" size={14} color={colors.onBrandPrimary} />
+      <Text style={{ color: colors.onBrandPrimary, fontFamily: fonts.bold, fontSize: 12, letterSpacing: 0.5 }}>SOS</Text>
+    </Pressable>
+  );
+}
+
+/** Round icon button for top bars (bell, share, settings). */
+export function IconBtn({ icon, onPress, testID, dot, bordered }: { icon: string; onPress: () => void; testID?: string; dot?: boolean; bordered?: boolean }) {
+  const { colors } = useTheme();
+  return (
+    <Pressable testID={testID} onPress={onPress} hitSlop={6} style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: bordered ? 1 : 0, borderColor: colors.borderStrong, backgroundColor: colors.surface }}>
+      <Ionicons name={icon as any} size={21} color={colors.onSurface} />
+      {dot ? <View style={{ position: "absolute", top: 9, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brandPrimary, borderWidth: 1.5, borderColor: colors.surface }} /> : null}
+    </Pressable>
+  );
+}
+
+/** App top bar: location eyebrow + title on the left, actions on the right. */
+export function TopBar({ eyebrow, title, sub, right, leading, testID }: { eyebrow?: string; title: string; sub?: string; right?: ReactNode; leading?: ReactNode; testID?: string }) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ paddingTop: insets.top + space.sm, paddingBottom: space.sm, paddingHorizontal: space.lg, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: "row", alignItems: "center", gap: space.sm }}>
+      {leading ?? <Ionicons name="location-outline" size={22} color={colors.onSurface} />}
+      <View style={{ flex: 1 }}>
+        {eyebrow ? <Txt v="label">{eyebrow}</Txt> : null}
+        <Row gap={4}>
+          <Txt v="h3" testID={testID} numberOfLines={1} style={{ fontFamily: fonts.bold, fontSize: 17, flexShrink: 1 }}>
+            {title}
+          </Txt>
+          {sub ? <Txt v="caption" numberOfLines={1} style={{ flexShrink: 1 }}>{sub}</Txt> : null}
+        </Row>
+      </View>
+      <Row gap={space.sm}>{right}</Row>
+    </View>
+  );
+}
+
+/** Prajeta brand lockup: red shield mark + red wordmark. */
+export function BrandLogo({ size = 34, sub = "Executive chauffeurs", name = "Prajeta", testID = "brand-name" }: { size?: number; sub?: string | null; name?: string; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <Row gap={space.sm}>
+      <View style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="shield-checkmark" size={Math.round(size * 0.55)} color={colors.onBrandPrimary} />
+      </View>
+      <View>
+        <Text testID={testID} style={{ fontFamily: fonts.extrabold, fontSize: Math.round(size * 0.5), letterSpacing: 0.8, color: colors.brandPrimary }}>
+          {name.toUpperCase()}
+        </Text>
+        {sub ? <Txt v="label" style={{ fontSize: 9 }}>{sub}</Txt> : null}
+      </View>
+    </Row>
+  );
+}
+
+/** Number-plate style registration chip. */
+export function Plate({ reg }: { reg: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ borderWidth: 1.5, borderColor: colors.onSurface, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 1, backgroundColor: colors.surface }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1, color: colors.onSurface }}>{reg}</Text>
+    </View>
+  );
+}
+
+/** Thin bordered strip of trust badges. */
+export function TrustStrip({ items, testID }: { items: { icon: string; label: string }[]; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View testID={testID} style={{ flexDirection: "row", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, paddingVertical: space.md }}>
+      {items.map((it, i) => (
+        <Row key={it.label} gap={6} style={{ flex: 1, paddingHorizontal: space.sm, borderLeftWidth: i ? 1 : 0, borderLeftColor: colors.border }}>
+          <Ionicons name={it.icon as any} size={16} color={colors.success} />
+          <Text style={{ flex: 1, fontFamily: fonts.semibold, fontSize: 11, lineHeight: 14, color: colors.onSurface }}>{it.label}</Text>
+        </Row>
+      ))}
+    </View>
+  );
+}
+
+/** Vertical pickup → drop timeline with dots. */
+export function RouteLine({ stops }: { stops: { label: string; title: string; sub?: string; right?: ReactNode }[] }) {
+  const { colors } = useTheme();
+  return (
+    <View>
+      {stops.map((s, i) => (
+        <Row key={i} gap={space.md} style={{ alignItems: "stretch" }}>
+          <View style={{ width: 16, alignItems: "center" }}>
+            <View style={{ width: 14, height: 14, borderRadius: 7, marginTop: 3, backgroundColor: i === 0 ? colors.success : colors.brandPrimary, borderWidth: 3, borderColor: i === 0 ? colors.successSoft : colors.brandTertiary }} />
+            {i < stops.length - 1 ? <View style={{ flex: 1, width: 2, backgroundColor: colors.borderStrong, marginVertical: 2 }} /> : null}
+          </View>
+          <View style={{ flex: 1, paddingBottom: i < stops.length - 1 ? space.md : 0 }}>
+            <Row style={{ justifyContent: "space-between" }}>
+              <Txt v="label" style={{ flex: 1 }}>{s.label}</Txt>
+              {s.right}
+            </Row>
+            <Txt v="h3" style={{ fontFamily: fonts.bold }}>{s.title}</Txt>
+            {s.sub ? <Txt v="caption">{s.sub}</Txt> : null}
+          </View>
+        </Row>
+      ))}
+    </View>
+  );
+}
+
+/** Horizontal step progress (Assigned · Arriving · Started · Complete). */
+export function StepBar({ steps, current, testID }: { steps: string[]; current: number; testID?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View testID={testID} style={{ flexDirection: "row", gap: 6 }}>
+      {steps.map((s, i) => (
+        <View key={s} style={{ flex: 1, gap: 6, alignItems: "center" }}>
+          <View style={{ height: 5, alignSelf: "stretch", borderRadius: 3, backgroundColor: i < current ? colors.surfaceInverse : i === current ? colors.onSurfaceTertiary : colors.tintBorder }} />
+          <Ionicons name={i < current ? "checkmark-circle-outline" : i === current ? "navigate-outline" : "ellipse-outline"} size={14} color={i <= current ? colors.onSurface : colors.muted} />
+          <Text numberOfLines={1} style={{ fontFamily: fonts.semibold, fontSize: 10, color: i <= current ? colors.onSurface : colors.muted }}>{s}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** Big PIN/OTP display boxed inside a tinted card. */
+export function PinDisplay({ value, testID, label = "OTP" }: { value: string; testID?: string; label?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ alignSelf: "center", flexDirection: "row", alignItems: "center", gap: space.md, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.surfaceInverse, borderRadius: radius.lg, paddingHorizontal: space.xl, paddingVertical: space.md }}>
+      <Text style={{ fontFamily: fonts.semibold, fontSize: 12, color: colors.onSurface }}>{label}:</Text>
+      <Text testID={testID} style={{ fontFamily: fonts.extrabold, fontSize: 30, letterSpacing: 8, color: colors.onSurface, fontVariant: ["tabular-nums"] }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** Four separate OTP boxes backed by one hidden input. */
+export function OtpBoxes({ value, onChange, testID, length = 4 }: { value: string; onChange: (v: string) => void; testID?: string; length?: number }) {
+  const { colors } = useTheme();
+  const ref = useRef<any>(null);
+  const [focus, setFocus] = useState(false);
+  return (
+    <Pressable onPress={() => ref.current?.focus()} style={{ alignSelf: "center" }}>
+      <Row gap={space.md}>
+        {Array.from({ length }).map((_, i) => {
+          const active = focus && (i === value.length || (i === length - 1 && value.length === length));
+          return (
+            <View key={i} style={{ width: 56, height: 64, borderRadius: radius.lg, borderWidth: active ? 3 : 1.5, borderColor: active ? colors.surfaceInverse : colors.outline, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 26, color: colors.onSurface }}>{value[i] ?? ""}</Text>
+            </View>
+          );
+        })}
+      </Row>
+      <TextInput
+        ref={ref}
+        testID={testID}
+        value={value}
+        onChangeText={(t) => onChange(t.replace(/\D/g, "").slice(0, length))}
+        keyboardType="number-pad"
+        maxLength={length}
+        onFocus={() => setFocus(true)}
+        onBlur={() => setFocus(false)}
+        style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, opacity: 0.02, color: "transparent" }}
+        caretHidden
+      />
+    </Pressable>
+  );
+}

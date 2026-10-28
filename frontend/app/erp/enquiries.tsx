@@ -24,7 +24,7 @@ export default function Enquiries() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Enquiries & corporate" subtitle="Corporate, monthly, permanent & contact leads" />
       {q.isLoading ? <Loader /> : (
         <FlatList

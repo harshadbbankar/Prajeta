@@ -28,7 +28,7 @@ export default function Performance() {
   const [period, setPeriod] = useState("30d");
   const q = useQuery({ queryKey: ["staff-perf", period], queryFn: () => api<any>(`/admin/staff/performance?period=${period}`), retry: false });
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Staff performance" subtitle="From audit logs, tickets & dispatch records" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>

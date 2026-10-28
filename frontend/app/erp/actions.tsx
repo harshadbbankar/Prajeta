@@ -35,7 +35,7 @@ export default function Actions() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Action plan" subtitle="Owner task register" right={<Btn small title="Add" icon="add" onPress={() => setOpen(true)} testID="add-action-button" />} />
       {q.isLoading ? <Loader /> : (
         <FlatList

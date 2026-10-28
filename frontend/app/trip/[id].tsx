@@ -3,20 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { useState } from "react";
-import { Platform, RefreshControl, ScrollView, View } from "react-native";
+import { Platform, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { LocationShare } from "@/src/components/LocationShare";
 import { SosButton } from "@/src/components/SosButton";
 import { fmtDate, fmtTime } from "@/src/hooks";
-import { radius, space, useTheme } from "@/src/theme";
-import { Btn, Card, Chip, Field, Header, KV, Loader, Row, Sheet, StatusBadge, Txt, money, useToast } from "@/src/ui";
+import { fonts, radius, space, useTheme } from "@/src/theme";
+import { Btn, Card, CardTitle, Chip, Field, Header, IconTile, KV, Loader, OtpBoxes, Plate, Row, RouteLine, Sheet, StatusBadge, StepBar, Txt, money, useToast } from "@/src/ui";
 
 const STEPS = [
   ["ACCEPTED", "Accepted"],
-  ["DRIVER_ARRIVED", "Arrived at pickup"],
-  ["IN_PROGRESS", "Trip started (OTP)"],
+  ["DRIVER_ARRIVED", "Arrived"],
+  ["IN_PROGRESS", "Started"],
   ["COMPLETED", "Completed"],
 ];
 
@@ -61,22 +61,47 @@ export default function Trip() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
-      <Header title={j.service_name} subtitle={j.ref} right={<StatusBadge status={j.status} testID="trip-status-badge" />} />
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <Header eyebrow={`#${j.ref}`} title={j.service_name} subtitle={j.city_name ?? undefined} right={<StatusBadge status={j.status} testID="trip-status-badge" />} />
       <ScrollView refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} />} contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
         <Card style={{ gap: space.md }}>
-          {STEPS.map(([s, l], i) => (
-            <Row key={s} gap={space.md}>
-              <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: i <= idx ? colors.surfaceInverse : colors.surfaceSecondary }}>
-                {i <= idx ? <Ionicons name="checkmark" size={16} color={colors.onSurfaceInverse} /> : <Txt v="caption">{i + 1}</Txt>}
-              </View>
-              <Txt v={i === idx + 1 ? "h3" : "body"} color={i <= idx + 1 ? colors.onSurface : colors.muted}>{l}</Txt>
-            </Row>
-          ))}
+          <StepBar steps={STEPS.map(([, l]) => l)} current={j.status === "COMPLETED" ? 4 : idx + 1} testID="trip-step-bar" />
+        </Card>
+
+        <Card style={{ gap: space.md }} testID="trip-customer-card">
+          <Row gap={space.md}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.tint, borderWidth: 1, borderColor: colors.tintBorder, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name="person-outline" size={24} color={colors.onSurface} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt v="h2" style={{ fontFamily: fonts.bold }}>{j.customer_name || "Customer"}</Txt>
+              <Txt v="caption">Vehicle owner · {fmtDate(j.date)} · {fmtTime(j.time)}</Txt>
+            </View>
+            {j.customer_phone && j.status !== "COMPLETED" ? (
+              <Pressable testID="trip-call-customer-button" onPress={() => Linking.openURL(`tel:${j.customer_phone}`)} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.borderStrong, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="call-outline" size={20} color={colors.onSurface} />
+              </Pressable>
+            ) : null}
+          </Row>
+          <Row gap={space.md} style={{ backgroundColor: colors.tint, borderWidth: 1, borderColor: colors.tintBorder, borderRadius: radius.md, padding: space.md }}>
+            <IconTile icon="car-outline" tone="plain" />
+            <View style={{ flex: 1 }}>
+              <Row style={{ flexWrap: "wrap" }} gap={6}>
+                <Txt v="h3" style={{ fontFamily: fonts.bold }} testID="trip-vehicle">{j.vehicle ? `${j.vehicle.make} ${j.vehicle.model}` : j.vehicle_type}</Txt>
+                {j.vehicle?.reg_number ? <Plate reg={j.vehicle.reg_number} /> : null}
+              </Row>
+              <Txt v="caption">{j.vehicle?.color ? `${j.vehicle.color} · ` : ""}{j.transmission}</Txt>
+            </View>
+          </Row>
+          <RouteLine
+            stops={[
+              { label: "Pickup address", title: j.pickup || j.pickup_area || "Shared after acceptance" },
+              ...(j.destination ? [{ label: "Destination", title: j.destination, sub: j.service_id === "outstation" ? `${j.days} day(s)` : `${j.hours} hrs package` }] : []),
+            ]}
+          />
         </Card>
 
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status) ? <LocationShare bookingId={j.id} /> : null}
-        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status) ? <SosButton bookingId={j.id} role="driver" /> : null}
         {j.status === "ACCEPTED" ? (
           <View style={{ gap: space.md }}>
             <Btn variant="dark" title="Navigate to pickup" icon="navigate" onPress={navigate} testID="trip-navigate-button" />
@@ -84,16 +109,20 @@ export default function Trip() {
           </View>
         ) : null}
         {j.status === "DRIVER_ARRIVED" ? (
-          <Card style={{ gap: space.md, borderColor: colors.brandPrimary, borderWidth: 1.5 }}>
-            <Txt v="h3">Enter the customer trip OTP</Txt>
-            <Field placeholder="4-digit OTP" keyboardType="number-pad" maxLength={4} value={otp} onChangeText={setOtp} testID="trip-otp-input" style={{ fontSize: 28, letterSpacing: 12, textAlign: "center" }} />
-            <Btn title="Verify OTP & start trip" icon="play" loading={busy} disabled={otp.length !== 4} onPress={() => act("start", { otp }, "Trip started")} testID="trip-start-button" />
+          <Card style={{ gap: space.md, borderColor: colors.surfaceInverse, borderWidth: 2 }} testID="trip-otp-card">
+            <Row gap={6} style={{ justifyContent: "center" }}>
+              <Ionicons name="keypad-outline" size={18} color={colors.onSurface} />
+              <Txt v="h3" style={{ fontFamily: fonts.bold, letterSpacing: 0.5 }}>TRIP-START OTP</Txt>
+            </Row>
+            <Txt v="caption" center>Ask the customer for the 4-digit security code before ignition handover.</Txt>
+            <OtpBoxes value={otp} onChange={setOtp} testID="trip-otp-input" />
+            <Btn variant="dark" title="Verify OTP & Start Trip" icon="play" loading={busy} disabled={otp.length !== 4} onPress={() => act("start", { otp }, "Trip started")} testID="trip-start-button" />
           </Card>
         ) : null}
         {j.status === "IN_PROGRESS" ? (
           <View style={{ gap: space.md }}>
             {j.destination ? <Btn variant="dark" title="Navigate to destination" icon="navigate" onPress={navigate} testID="trip-navigate-dest-button" /> : null}
-            <Btn title="Complete trip" icon="flag" variant="success" onPress={() => setSheet("complete")} testID="trip-complete-button" />
+            <Btn title="Complete trip & handover" icon="flag" variant="dark" onPress={() => setSheet("complete")} testID="trip-complete-button" />
           </View>
         ) : null}
         {j.status === "COMPLETED" ? (
@@ -103,20 +132,17 @@ export default function Trip() {
             <Txt v="body" color={colors.muted}>Earnings: {money(j.driver_payout)}</Txt>
           </Card>
         ) : null}
+        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(j.status) ? <SosButton bookingId={j.id} role="driver" /> : null}
 
         <Card style={{ gap: 2 }}>
-          <Txt v="h3" style={{ marginBottom: space.sm }}>Assignment</Txt>
+          <CardTitle icon="wallet-outline" title="Assignment & payout" />
+          <View style={{ height: space.sm }} />
           <KV k="When" v={`${fmtDate(j.date)} · ${fmtTime(j.time)}`} />
           <KV k="Duration" v={j.service_id === "outstation" ? `${j.days} day(s)` : `${j.hours} hrs`} />
-          {j.pickup ? <KV k="Pickup" v={j.pickup} /> : null}
-          {j.destination ? <KV k="Destination" v={j.destination} /> : null}
-          <KV k="Vehicle" v={j.vehicle ? `${j.vehicle.make} ${j.vehicle.model} · ${j.vehicle.reg_number} · ${j.transmission}` : `${j.vehicle_type} · ${j.transmission}`} testID="trip-vehicle" />
           {j.notes ? <KV k="Instructions" v={j.notes} /> : null}
-          {j.customer_name ? <KV k="Customer" v={j.customer_name} /> : null}
           <KV k="Your payout" v={money(j.driver_payout)} bold />
           {j.balance_due ? <KV k="Customer balance due" v={money(j.balance_due)} /> : null}
         </Card>
-        {j.customer_phone && j.status !== "COMPLETED" ? <Btn variant="outline" title="Call customer" icon="call" onPress={() => Linking.openURL(`tel:${j.customer_phone}`)} testID="trip-call-customer-button" /> : null}
         {j.status !== "COMPLETED" ? <Btn variant="ghost" title="Report delay / no-show / incident" icon="warning" onPress={() => setSheet("event")} testID="trip-report-button" /> : null}
         <Btn variant="ghost" title="Contact support" icon="headset" onPress={() => router.push("/support")} testID="trip-support-button" />
 

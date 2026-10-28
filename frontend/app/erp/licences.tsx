@@ -15,7 +15,7 @@ export default function Licences() {
   const insets = useSafeAreaInsets();
   const q = useQuery({ queryKey: ["licences"], queryFn: () => api<any[]>("/admin/licences") });
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Document expiry" subtitle="Licence, ID & police papers · reminders at 30/15/7/1 days" />
       {q.isLoading ? <Loader /> : q.error ? <ErrorView message={(q.error as any).message} /> : (
         <FlatList

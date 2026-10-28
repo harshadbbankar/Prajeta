@@ -18,7 +18,7 @@ export default function Ratings() {
   const q = useQuery({ queryKey: ["ratings", period], queryFn: () => api<any>(`/admin/ratings?period=${period}`), retry: false });
   const d = q.data;
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Driver ratings" subtitle="Ranked by review-weighted score" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>

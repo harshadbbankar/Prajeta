@@ -42,7 +42,7 @@ export function SupportScreen({ inTabs = true }: { inTabs?: boolean }) {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       {inTabs ? (
         <View style={{ paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, paddingBottom: space.md, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           <Txt v="title">Help & support</Txt>

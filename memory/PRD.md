@@ -20,6 +20,13 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 12 (2026-06) — Stitch screen-level restyle (22 mock screens)
+- User choices: keep Prajeta name; only restyle existing screens (no KYC/damage-photo screens); same layouts with real data, sample marketing copy allowed (spotlight, testimonials, stats).
+- Tokens: canvas #F9F9FF, tint #F0F3FF / #DCE2F3, text #151C27, card radius 12; black active tabs.
+- New ui blocks: TopBar, SosPill, IconBtn, Tag, IconTile, SectionHead, CardTitle, OptionBox, TrustStrip, RouteLine, StepBar, PinDisplay, OtpBoxes, Plate. SosQuick (top-bar SOS → live trip or 112/support sheet).
+- Rebuilt: website landing (Instant Dispatch, trust, spotlight, tiers, in-house comparison, testimonials, app band), customer home, booking wizard (Step 2 of 3, option boxes, fare breakdown, sticky payable bar), booking detail (step bar, PIN cards, driver card, vehicle+route, safety card), driver home (on-duty, dispatch match offer card), trip screen (OTP boxes), earnings, ERP dashboard (briefing, KPIs, exception board, KYC queue), profile, bookings, jobs.
+- Backend: driver offer brief now includes booking.vehicle (make/model/reg).
+
 ## Iteration 11 (2026-06) — Executive Chauffeur Platform v2.4 restyle
 - Design tokens from user DESIGN.md: Inter font, #171717 primary dark, #E53935 accent (CTAs/SOS), #F3F4F6 canvas, #E5E7EB borders, radius 8, 52px buttons/inputs, 38px chips (selected dark), bordered status badges (pending/confirmed/completed/cancelled tokens). Workflows unchanged.
 - Customer garage (/api/me/vehicles, profile card, pick in booking → booking.vehicle snapshot; driver job shows vehicle).

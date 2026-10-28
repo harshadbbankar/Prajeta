@@ -26,7 +26,7 @@ export default function AdminDrivers() {
   const [search, setSearch] = useState("");
   const q = useQuery({ queryKey: ["admin-drivers", status, search], queryFn: () => api<any[]>(`/admin/drivers?status=${status}&q=${encodeURIComponent(search)}`) });
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ paddingTop: insets.top + space.sm, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <View style={{ paddingHorizontal: space.lg, gap: space.sm }}>
           <Txt v="title">Drivers</Txt>

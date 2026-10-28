@@ -37,7 +37,7 @@ export default function Owner() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Owner intelligence" subtitle="Live from production records" right={<Btn small variant="outline" icon="download" title="CSV" testID="owner-export-csv" onPress={async () => WebBrowser.openBrowserAsync(await authedUrl("/admin/bookings/export.csv"))} />} />
       <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <ChipRow>

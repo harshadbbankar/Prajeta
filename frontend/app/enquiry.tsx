@@ -45,7 +45,7 @@ export default function Enquiry() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={TITLES[type] ?? "Enquiry"} subtitle="We respond within one business day" />
       {done ? (
         <View style={{ padding: space.lg }}>

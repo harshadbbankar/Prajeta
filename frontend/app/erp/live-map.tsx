@@ -60,7 +60,7 @@ export default function LiveMap() {
   if (d?.pickup) markers.push({ ...d.pickup, kind: "pickup", id: "pickup" });
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Live driver map" subtitle={d?.booking ? `Nearest drivers for ${d.booking.ref}` : "Online and on-trip drivers"} />
       {!booking ? (
         <View style={{ backgroundColor: colors.surface }}>

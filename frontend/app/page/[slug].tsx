@@ -70,7 +70,7 @@ export default function InfoPage() {
   const p = PAGES[slug ?? ""] ?? { title: "Page", body: ["Not found"] };
   const s = cfg.data?.settings ?? {};
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={p.title} />
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + space.xl }}>
         {p.body.map((b, i) => (

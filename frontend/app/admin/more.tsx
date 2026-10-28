@@ -32,7 +32,7 @@ export default function More() {
   const insets = useSafeAreaInsets();
   const { user, signOut } = useAuth();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <View style={{ paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, paddingBottom: space.md, borderBottomWidth: 1, borderBottomColor: colors.border }}>
         <Txt v="title">ERP modules</Txt>
         <Txt v="caption">{user?.name} · {user?.role}</Txt>

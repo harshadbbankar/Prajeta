@@ -31,7 +31,7 @@ export default function TicketDetail() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={t?.subject ?? "Ticket"} subtitle={t ? `${t.ref}${t.booking_ref ? " · " + t.booking_ref : ""}` : ""} right={t ? <StatusBadge status={t.status} /> : null} />
       {!t ? (
         <Loader />

@@ -68,7 +68,7 @@ export default function Tariffs() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Tariffs & service areas" subtitle="All apps use these server-side rules" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
         <Card style={{ gap: space.sm }}>

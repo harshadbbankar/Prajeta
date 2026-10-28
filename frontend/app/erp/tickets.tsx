@@ -44,7 +44,7 @@ export default function Tickets() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Support & incidents" />
       <View style={{ backgroundColor: colors.surface }}>
         <ChipRow>

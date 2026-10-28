@@ -13,8 +13,8 @@ import { ShareTrip } from "@/src/components/ShareTrip";
 import { SosButton } from "@/src/components/SosButton";
 import { downloadInvoice } from "@/src/invoice";
 import { TIME_SLOTS, fmtDate, fmtTime, nextDays, useConfig, usePolling } from "@/src/hooks";
-import { space, useTheme } from "@/src/theme";
-import { Btn, Card, Chip, ChipRow, Divider, ErrorView, Field, Header, KV, Loader, Row, Sheet, StatusBadge, Txt, money, useToast } from "@/src/ui";
+import { fonts, radius, space, useTheme } from "@/src/theme";
+import { Btn, Card, CardTitle, Chip, ChipRow, Divider, ErrorView, Field, Header, KV, Loader, PinDisplay, Row, RouteLine, Sheet, StatusBadge, StepBar, Tag, Txt, money, useToast } from "@/src/ui";
 
 const FLOW = ["AWAITING_ASSIGNMENT", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS", "COMPLETED"];
 const REVIEW_TAGS = ["Punctual", "Safe driving", "Polite", "Well dressed", "Knows routes", "Careful with car"];
@@ -44,7 +44,7 @@ export default function BookingDetail() {
   if (q.isLoading) return <Loader />;
   if (q.error || !b)
     return (
-      <View style={{ flex: 1, backgroundColor: colors.surface }}>
+      <View style={{ flex: 1, backgroundColor: colors.canvas }}>
         <Header title="Booking" />
         <ErrorView message={(q.error as any)?.message ?? "Not found"} onRetry={() => q.refetch()} />
       </View>
@@ -93,8 +93,8 @@ export default function BookingDetail() {
 
   const f = b.fare ?? {};
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
-      <Header title={b.service_name} subtitle={`Ref ${b.ref}`} right={<StatusBadge status={b.status} testID="booking-status-badge" />} />
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <Header eyebrow={`Booking ID #${b.ref}`} title={b.service_name} subtitle={b.city_name ?? b.city_id} right={<StatusBadge status={b.status} testID="booking-status-badge" />} />
       <ScrollView
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} />}
         contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xxl }}
@@ -127,85 +127,126 @@ export default function BookingDetail() {
 
         {/* Progress */}
         {step >= 0 ? (
-          <Card style={{ gap: space.md }}>
-            <Txt v="h3">Trip progress</Txt>
-            {FLOW.map((s, i) => (
-              <Row key={s} gap={space.md}>
-                <View style={{ width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: i <= step ? colors.brandPrimary : colors.surfaceSecondary }}>
-                  {i <= step ? <Ionicons name="checkmark" size={14} color={colors.onBrandPrimary} /> : null}
-                </View>
-                <Txt v={i === step ? "bodyBold" : "body"} color={i <= step ? colors.onSurface : colors.muted}>
-                  {FLOW_LABEL[i]}
-                  {i === 0 && b.status === "ASSIGNED" ? " · driver offered" : ""}
+          <Card style={{ gap: space.md }} testID="trip-progress-card">
+            <Row style={{ justifyContent: "space-between" }}>
+              <Row gap={6} style={{ flex: 1 }}>
+                <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: ["DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? colors.success : colors.brandPrimary }} />
+                <Txt v="h3" style={{ fontFamily: fonts.bold, flex: 1 }} numberOfLines={1}>
+                  {FLOW_LABEL[step]}
+                  {step === 0 && b.status === "ASSIGNED" ? " · driver offered" : ""}
                 </Txt>
               </Row>
-            ))}
-          </Card>
-        ) : null}
-
-        {b.trip_otp && ["AWAITING_ASSIGNMENT", "ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED"].includes(b.status) ? (
-          <Card testID="trip-otp-card" style={{ alignItems: "center", gap: 4, borderColor: colors.brandPrimary, borderWidth: 1.5 }}>
-            <Txt v="label">Trip start OTP</Txt>
-            <Txt v="numLg" testID="trip-otp-value" style={{ letterSpacing: 10 }}>
-              {b.trip_otp}
-            </Txt>
-            <Txt v="caption">Share only when your driver arrives.</Txt>
-          </Card>
-        ) : null}
-
-        {b.end_otp && b.status === "IN_PROGRESS" ? (
-          <Card testID="end-pin-card" style={{ alignItems: "center", gap: 4, borderColor: colors.surfaceInverse, borderWidth: 1.5 }}>
-            <Txt v="label">Trip-end handover PIN</Txt>
-            <Txt v="numLg" testID="end-pin-value" style={{ letterSpacing: 10 }}>
-              {b.end_otp}
-            </Txt>
-            <Txt v="caption" center>Share only after you get your car and keys back in good condition.</Txt>
+              <Txt v="caption">{fmtDate(b.date)} · {fmtTime(b.time)}</Txt>
+            </Row>
+            <StepBar steps={["Confirmed", "Assigned", "Arrived", "Started", "Complete"]} current={b.status === "COMPLETED" ? 5 : step} />
           </Card>
         ) : null}
 
         {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <LiveTracking bookingId={b.id} /> : null}
-        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <SosButton bookingId={b.id} role="customer" /> : null}
+
+        {b.trip_otp && ["AWAITING_ASSIGNMENT", "ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED"].includes(b.status) ? (
+          <Card tone="tint" testID="trip-otp-card" style={{ alignItems: "center", gap: space.sm }}>
+            <Row gap={6}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.onSurface} />
+              <Txt v="h3" style={{ fontFamily: fonts.bold }}>Start Trip Verification PIN</Txt>
+            </Row>
+            <Txt v="caption" center>
+              Share this PIN with {b.driver?.name?.split(" ")[0] ?? "your driver"} only when they arrive and you are ready to depart.
+            </Txt>
+            <PinDisplay value={b.trip_otp} testID="trip-otp-value" />
+          </Card>
+        ) : null}
+
+        {b.end_otp && b.status === "IN_PROGRESS" ? (
+          <Card tone="tint" testID="end-pin-card" style={{ alignItems: "center", gap: space.sm }}>
+            <Row gap={6}>
+              <Ionicons name="key-outline" size={18} color={colors.onSurface} />
+              <Txt v="h3" style={{ fontFamily: fonts.bold }}>Trip-End Handover PIN</Txt>
+            </Row>
+            <Txt v="caption" center>Share only after you get your car and keys back in good condition.</Txt>
+            <PinDisplay value={b.end_otp} label="PIN" testID="end-pin-value" />
+          </Card>
+        ) : null}
 
         {b.driver ? (
-          <Card testID="driver-card" style={{ gap: space.sm }}>
-            <Row gap={space.md}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surfaceInverse, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name="person" size={22} color={colors.onSurfaceInverse} />
+          <Card testID="driver-card" style={{ gap: space.md }}>
+            <Row gap={space.md} style={{ alignItems: "flex-start" }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.tint, borderWidth: 2, borderColor: colors.surfaceInverse, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="person" size={28} color={colors.onSurface} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Txt v="h3">{b.driver.name}</Txt>
-                <Txt v="caption">
-                  Verified driver · {b.driver.experience_years} yrs exp · ★ {b.driver.rating ?? "New"}
+              <View style={{ flex: 1, gap: 2 }}>
+                <Txt v="h2" style={{ fontFamily: fonts.bold }}>{b.driver.name}</Txt>
+                <Txt v="caption" style={{ color: colors.onSurface }}>
+                  ☆ {b.driver.rating ?? "New"} · {b.driver.experience_years} yrs experience
                 </Txt>
                 {b.driver.badge_label ? (
-                  <Txt v="label" color={colors.warning} testID="driver-badge">
+                  <Txt v="label" color={colors.warningText} testID="driver-badge">
                     {b.driver.badge === "gold" ? "🏆" : "🎖️"} {b.driver.badge_label}
                   </Txt>
                 ) : null}
               </View>
-              {b.driver.phone ? (
-                <Pressable testID="call-driver-button" onPress={() => Linking.openURL(`tel:${b.driver.phone}`)} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.successSoft, alignItems: "center", justifyContent: "center" }}>
-                  <Ionicons name="call" size={20} color={colors.success} />
-                </Pressable>
-              ) : null}
+            </Row>
+            {b.driver.phone ? (
+              <Row>
+                <Btn style={{ flex: 1 }} variant="outline" icon="call-outline" title="Call driver" onPress={() => Linking.openURL(`tel:${b.driver.phone}`)} testID="call-driver-button" />
+                <Btn style={{ flex: 1 }} variant="dark" icon="chatbox-ellipses-outline" title="Message" onPress={() => Linking.openURL(`sms:${b.driver.phone}`)} testID="message-driver-button" />
+              </Row>
+            ) : null}
+            <Divider />
+            <Row style={{ flexWrap: "wrap" }}>
+              <Tag tone="tint" icon="shield-checkmark-outline" label="Police verified chauffeur" />
+              <Tag tone="tint" icon="ribbon-outline" label={`${b.driver.experience_years}+ years exp`} />
+              <Tag tone="tint" icon="cog-outline" label={`${b.transmission} specialist`} />
             </Row>
           </Card>
         ) : null}
 
-        {["AWAITING_ASSIGNMENT", "ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <ShareTrip booking={b} onChange={() => q.refetch()} /> : null}
-
-        <Card style={{ gap: 2 }}>
-          <Txt v="h3" style={{ marginBottom: space.sm }}>
-            Booking details
-          </Txt>
-          <KV k="When" v={`${fmtDate(b.date)} · ${fmtTime(b.time)}`} />
-          <KV k="City" v={b.city_name ?? b.city_id} />
-          <KV k="Pickup" v={b.pickup} />
-          {b.destination ? <KV k="Destination" v={b.destination} /> : null}
-          <KV k="Duration" v={b.service_id === "outstation" ? `${b.days} day(s)` : `${b.hours} hrs`} />
-          <KV k="Vehicle" v={b.vehicle ? `${b.vehicle.make} ${b.vehicle.model} · ${b.vehicle.reg_number} · ${b.transmission}` : `${b.vehicle_type} · ${b.transmission}`} testID="booking-vehicle" />
+        <Card style={{ gap: space.md }}>
+          <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+            <View style={{ flex: 1 }}>
+              <Txt v="label">Registered vehicle</Txt>
+              <Txt v="h3" style={{ fontFamily: fonts.bold }} testID="booking-vehicle">
+                {b.vehicle ? `${b.vehicle.make} ${b.vehicle.model} (${b.vehicle.reg_number})` : `${b.vehicle_type} · your car`}
+              </Txt>
+            </View>
+            <Tag tone="tint" label={`${b.transmission} · ${b.vehicle?.body_type ?? b.vehicle_type}`} />
+          </Row>
+          <Divider />
+          <RouteLine
+            stops={[
+              { label: "Pickup location", title: b.pickup, sub: b.city_name ?? b.city_id },
+              { label: "Drop location", title: b.destination || "Multiple stops / as directed" },
+            ]}
+          />
+          <Row style={{ alignItems: "stretch" }}>
+            <View style={{ flex: 1, backgroundColor: colors.tint, borderRadius: radius.md, padding: space.md, gap: 2 }}>
+              <Txt v="caption">Selected package</Txt>
+              <Txt v="bodyBold">{b.service_id === "outstation" ? `${b.days} day(s)` : `${b.hours} hrs`} {b.service_name}</Txt>
+            </View>
+            <View style={{ flex: 1, backgroundColor: colors.tint, borderRadius: radius.md, padding: space.md, gap: 2 }}>
+              <Txt v="caption">Estimated bill</Txt>
+              <Txt v="num">{f.total ? money(f.total) : "On quote"}</Txt>
+            </View>
+          </Row>
           {b.notes ? <KV k="Instructions" v={b.notes} /> : null}
         </Card>
+
+        {["AWAITING_ASSIGNMENT", "ASSIGNED", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <ShareTrip booking={b} onChange={() => q.refetch()} /> : null}
+
+        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? (
+          <Card style={{ gap: space.md }} testID="safety-support-card">
+            <CardTitle icon="shield-outline" title="Concierge & Safety Support" />
+            <Pressable onPress={() => router.push("/customer/support")} style={{ flexDirection: "row", alignItems: "center", gap: space.md, backgroundColor: colors.tint, borderWidth: 1, borderColor: colors.tintBorder, borderRadius: radius.md, padding: space.md }}>
+              <Ionicons name="headset-outline" size={20} color={colors.onSurface} />
+              <View style={{ flex: 1 }}>
+                <Txt v="bodyBold">Safety concierge</Txt>
+                <Txt v="caption">Priority support for live trips</Txt>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+            <SosButton bookingId={b.id} role="customer" />
+          </Card>
+        ) : null}
 
         {f.total ? (
           <Card style={{ gap: 2 }}>

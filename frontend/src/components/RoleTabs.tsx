@@ -13,7 +13,7 @@ export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
   const { colors } = useTheme();
   if (usesNativeTabs) {
     return (
-      <NativeTabs tintColor={colors.brandPrimary}>
+      <NativeTabs tintColor={colors.onSurface}>
         {tabs.map((t) => (
           <NativeTabs.Trigger key={t.name} name={t.name} hidden={t.hidden}>
             <NativeTabs.Trigger.Icon sf={t.sf as any} />
@@ -28,7 +28,7 @@ export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
       screenListeners={{ tabPress: () => Platform.OS !== "web" && Haptics.selectionAsync() }}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.brandPrimary,
+        tabBarActiveTintColor: colors.onSurface,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           backgroundColor: colors.surface,

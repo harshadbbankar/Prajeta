@@ -1,4 +1,3 @@
-import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -9,7 +8,7 @@ import { api } from "@/src/api";
 import { homeFor, useAuth, User } from "@/src/auth";
 import { exchangeSession, startGoogleLogin } from "@/src/googleAuth";
 import { space, radius, useTheme } from "@/src/theme";
-import { Btn, Card, Chip, Field, Header, Row, Txt, useToast } from "@/src/ui";
+import { BrandLogo, Btn, Card, Chip, Field, Header, Row, Txt, useToast } from "@/src/ui";
 
 export default function Login() {
   const params = useLocalSearchParams<{ role?: string; next?: string }>();
@@ -84,12 +83,10 @@ export default function Login() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Log in or sign up" subtitle="Secure login with WhatsApp OTP" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
-        <View style={{ width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.brandTertiary, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="logo-whatsapp" size={28} color={colors.brandPrimary} />
-        </View>
+        <BrandLogo size={40} testID="login-brand" />
         <Txt v="title">{step === "phone" ? "Enter your mobile number" : "Enter verification code"}</Txt>
         {step === "phone" ? (
           <>

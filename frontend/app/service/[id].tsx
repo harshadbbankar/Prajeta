@@ -28,7 +28,7 @@ export default function ServicePage() {
   const extra = EXTRA[id ?? ""] ?? { points: [], faqs: [] };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={s?.name ?? "Service"} subtitle="Prajeta driver service" />
       {!s ? (
         <Loader />

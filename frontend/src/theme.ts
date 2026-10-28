@@ -38,7 +38,14 @@ export type ColorScheme = "light" | "dark";
 // Executive Chauffeur Platform tokens (DESIGN.md) — Inter / Round 8
 const light = {
   surface: "#FFFFFF",
-  onSurface: "#171717",
+  onSurface: "#151C27",
+  // Stitch canvas (#f9f9ff) and soft blue containers (#f0f3ff / #dce2f3)
+  canvas: "#F9F9FF",
+  onCanvas: "#151C27",
+  tint: "#F0F3FF",
+  onTint: "#151C27",
+  tintBorder: "#DCE2F3",
+  outline: "#747878",
   surfaceSecondary: "#F3F4F6",
   onSurfaceSecondary: "#292929",
   surfaceTertiary: "#E5E7EB",
@@ -139,4 +146,4 @@ export const fonts = {
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48 };
 // Executive Chauffeur Platform: "Round 8"
-export const radius = { sm: 6, md: 8, lg: 8, pill: 999 };
+export const radius = { sm: 6, md: 8, lg: 12, pill: 999 };

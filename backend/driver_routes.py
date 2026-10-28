@@ -149,6 +149,8 @@ async def booking_brief(b: dict, full: bool = False) -> dict:
                                  "status", "vehicle_type", "transmission", "notes", "driver_payout", "pickup_area",
                                  "destination", "started_at", "completed_at", "arrived_at", "balance_due")}
     out["pickup_area"] = b.get("pickup_area") or (b.get("pickup") or "").split(",")[-1].strip()
+    if b.get("vehicle"):
+        out["vehicle"] = {k: b["vehicle"].get(k) for k in ("make", "model", "reg_number", "body_type", "transmission", "color")}
     if full:
         out.update({"pickup": b.get("pickup"), "customer_name": b.get("customer_name"),
                     "customer_phone": b.get("customer_phone"), "fare_total": b.get("fare", {}).get("total"),

@@ -44,6 +44,13 @@ export function priceFrom(s: Service) {
   return `From ₹${Math.round(s.base_fare / 100)} · ${s.base_hours} hrs`;
 }
 
+/** Price split for service cards: big amount + small unit. */
+export function priceParts(s: Service): { amount: string; unit: string } {
+  if (s.pricing_mode === "quote") return { amount: "Enquire", unit: "custom quote" };
+  if (s.pricing_mode === "daily") return { amount: `₹${Math.round(s.per_day / 100).toLocaleString("en-IN")}`, unit: "/day" };
+  return { amount: `₹${Math.round(s.base_fare / 100).toLocaleString("en-IN")}`, unit: `for ${s.base_hours} hrs` };
+}
+
 /** Re-run callback while app is foregrounded (controlled polling). */
 export function usePolling(cb: () => void, ms: number, enabled = true) {
   const [active, setActive] = useState(AppState.currentState === "active");

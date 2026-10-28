@@ -27,7 +27,7 @@ export default function Track() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Track booking" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
         <Field label="Booking reference" placeholder="PRJ-XXXXXXXX" autoCapitalize="characters" value={ref} onChangeText={setRef} testID="track-ref-input" />

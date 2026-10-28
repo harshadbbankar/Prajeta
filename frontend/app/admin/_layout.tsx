@@ -2,8 +2,10 @@ import { can, useAuth } from "@/src/auth";
 import { RoleTabs } from "@/src/components/RoleTabs";
 
 export default function AdminTabs() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const role = user?.role;
+  // Don't hide role-gated tabs until auth has loaded, or deep links to them bounce to the dashboard
+  if (!ready) return null;
   return (
     <RoleTabs
       tabs={[

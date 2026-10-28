@@ -40,7 +40,7 @@ export default function AdminBooking() {
   const rupees = Math.round(Number(amount || 0) * 100);
   const f = b.fare ?? {};
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={b.ref} subtitle={`${b.service_name} · ${b.city_name ?? b.city_id}`} right={<StatusBadge status={b.status} testID="admin-booking-status" />} />
       <ScrollView refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} />} contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
         {b.status === "QUOTE_REQUESTED" || b.status === "QUOTED" ? (

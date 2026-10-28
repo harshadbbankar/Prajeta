@@ -9,10 +9,11 @@ import { api } from "@/src/api";
 import { LocationShare } from "@/src/components/LocationShare";
 import { AddPhone } from "@/src/components/AddPhone";
 import { useAuth } from "@/src/auth";
-import { fmtDate, fmtTime, usePolling } from "@/src/hooks";
+import { fmtDate, fmtTime, useConfig, usePolling } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
-import { radius, space, useTheme } from "@/src/theme";
-import { Btn, Card, Empty, Loader, Row, StatusBadge, Txt, haptic, money, useToast } from "@/src/ui";
+import { SosQuick } from "@/src/components/SosQuick";
+import { fonts, radius, space, useTheme } from "@/src/theme";
+import { Btn, Card, Divider, Empty, IconBtn, IconTile, Loader, Plate, Row, RouteLine, SectionHead, StatusBadge, Tag, TopBar, Txt, haptic, money, useToast } from "@/src/ui";
 
 export default function DriverHome() {
   const { user, ready } = useAuth();
@@ -21,6 +22,8 @@ export default function DriverHome() {
   const toast = useToast();
   const profile = useQuery({ queryKey: ["driver-profile"], queryFn: () => api<any>("/driver/profile"), enabled: !!user });
   const offers = useQuery({ queryKey: ["driver-offers"], queryFn: () => api<any[]>("/driver/offers"), enabled: !!user });
+  const cfg = useConfig();
+  const earn = useQuery({ queryKey: ["driver-earnings"], queryFn: () => api<any>("/driver/earnings"), enabled: !!user });
   const jobs = useQuery({ queryKey: ["driver-jobs"], queryFn: () => api<any[]>("/driver/jobs"), enabled: !!user });
   const [busyId, setBusyId] = useState("");
   const [toggling, setToggling] = useState(false);
@@ -71,39 +74,64 @@ export default function DriverHome() {
     }
   };
 
+  const cityName = cfg.data?.cities.find((c) => c.id === p?.city_id)?.name ?? "Your city";
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
-      <View style={{ paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, paddingBottom: space.md, backgroundColor: colors.surfaceInverse }}>
-        <Row style={{ justifyContent: "space-between" }}>
-          <View style={{ flex: 1 }}>
-            <Txt v="caption" color={colors.surfaceTertiary}>
-              Prajeta Driver Partner
-            </Txt>
-            <Txt v="h2" color={colors.onSurfaceInverse} testID="driver-name">
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+      <TopBar
+        title={cityName}
+        eyebrow="Prajeta driver partner"
+        right={
+          <>
+            <SosQuick role="driver" />
+            <IconBtn icon="notifications-outline" onPress={() => router.push("/notifications")} testID="driver-notifications-button" />
+          </>
+        }
+      />
+      <View style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border, paddingHorizontal: space.lg, paddingVertical: space.md, gap: space.md }}>
+        <Row gap={space.md}>
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.tint, borderWidth: 1, borderColor: colors.tintBorder, alignItems: "center", justifyContent: "center" }}>
+            <Ionicons name="person" size={24} color={colors.onSurface} />
+            {approved ? (
+              <View style={{ position: "absolute", right: -2, bottom: -2, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.surface }}>
+                <Ionicons name="checkmark" size={10} color={colors.onSuccess} />
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Txt v="h3" style={{ fontFamily: fonts.bold, fontSize: 18 }} testID="driver-name" numberOfLines={1}>
               {p?.name || user.name || "Driver"}
             </Txt>
+            <Txt v="caption" numberOfLines={1}>
+              ☆ {p?.rating ?? "New"} · {p?.review_count ?? 0} reviews · {p?.experience_years ?? 0} yrs exp
+            </Txt>
+            {approved ? <Tag tone="success" label={p.badge === "gold" ? "Gold Star Chauffeur" : p.badge ? "Top Rated Chauffeur" : "Verified Chauffeur"} /> : <StatusBadge status={p?.status ?? "DRAFT"} />}
           </View>
-          <Pressable testID="driver-notifications-button" onPress={() => router.push("/notifications")} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandSecondary, alignItems: "center", justifyContent: "center" }}>
-            <Ionicons name="notifications" size={20} color={colors.onSurfaceInverse} />
-          </Pressable>
+          {approved ? (
+            <View style={{ alignItems: "flex-end" }}>
+              <Txt v="label">Today</Txt>
+              <Txt v="numLg" testID="driver-today-earnings">{money(earn.data?.periods?.today ?? 0)}</Txt>
+              <Txt v="caption" color={colors.successText}>{active.length ? `${active.length} active trip${active.length > 1 ? "s" : ""}` : "earned"}</Txt>
+            </View>
+          ) : null}
         </Row>
         {approved ? (
           <Pressable
             testID="driver-online-toggle"
             disabled={toggling}
             onPress={toggle}
-            style={{ marginTop: space.md, height: 64, borderRadius: radius.lg, backgroundColor: p.online ? colors.success : colors.brandSecondary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.lg }}
+            style={{ minHeight: 56, borderRadius: radius.lg, borderWidth: 1, borderColor: p.online ? colors.successBorder : colors.borderStrong, backgroundColor: p.online ? colors.successSoft : colors.surfaceSecondary, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: space.lg }}
           >
-            <View>
-              <Txt v="h2" color={colors.onSuccess}>
-                {p.online ? "You're online" : "You're offline"}
-              </Txt>
-              <Txt v="caption" color={colors.onSuccess}>
-                {p.online ? "Receiving booking offers" : "Tap to start receiving jobs"}
-              </Txt>
-            </View>
-            <View style={{ width: 56, height: 32, borderRadius: 16, backgroundColor: colors.surface, justifyContent: "center", padding: 3, alignItems: p.online ? "flex-end" : "flex-start" }}>
-              <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.online ? colors.success : colors.muted }} />
+            <Row gap={space.sm}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: p.online ? colors.success : colors.muted }} />
+              <View>
+                <Txt v="h3" style={{ fontFamily: fonts.bold }} color={p.online ? colors.successText : colors.onSurface}>
+                  {p.online ? "You're online · ON DUTY" : "You're offline"}
+                </Txt>
+                <Txt v="caption">{p.online ? "Receiving booking offers" : "Tap to start receiving jobs"}</Txt>
+              </View>
+            </Row>
+            <View style={{ width: 52, height: 30, borderRadius: 15, backgroundColor: p.online ? colors.success : colors.borderStrong, justifyContent: "center", padding: 3, alignItems: p.online ? "flex-end" : "flex-start" }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.surface }} />
             </View>
           </Pressable>
         ) : null}
@@ -190,7 +218,7 @@ export default function DriverHome() {
 
         {approved ? (
           <View style={{ gap: space.md }}>
-            <Txt v="h2">Booking offers</Txt>
+            <SectionHead title="Booking offers" sub={p.online ? "Nearest verified drivers see new jobs first" : "Go on duty to receive jobs"} />
             {offers.isLoading ? (
               <Loader />
             ) : !(offers.data ?? []).length ? (
@@ -198,48 +226,85 @@ export default function DriverHome() {
             ) : (
               offers.data!.map((o) => {
                 const mins = Math.max(0, Math.round((new Date(o.expires_at).getTime() - Date.now()) / 60000));
+                const b = o.booking;
                 return (
-                  <Card key={o.id} testID={`offer-${o.booking.ref}`} style={{ gap: space.sm, borderColor: colors.brandPrimary, borderWidth: 1.5 }}>
-                    {o.priority ? (
-                      <View testID={`offer-priority-${o.booking.ref}`}>
-                      <Row gap={4}>
-                        <Ionicons name="flash" size={14} color={colors.warning} />
-                        <Txt v="label" color={colors.warning}>Priority offer · top-rated drivers see this first</Txt>
-                      </Row>
+                  <View key={o.id} style={{ gap: space.md }}>
+                    <Row gap={space.md} style={{ backgroundColor: colors.surfaceInverse, borderRadius: radius.lg, padding: space.lg }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="flash" size={20} color={colors.onBrandPrimary} />
                       </View>
-                    ) : null}
-                    <Row style={{ justifyContent: "space-between" }}>
-                      <Txt v="h3">{o.booking.service_name}</Txt>
-                      <Txt v="caption" color={colors.brandPrimary}>
-                        Expires in {mins} min
-                      </Txt>
+                      <View style={{ flex: 1 }}>
+                        <Txt v="h3" style={{ fontFamily: fonts.bold }} color={colors.onSurfaceInverse}>NEW JOB DISPATCH MATCH</Txt>
+                        <Txt v="caption" color={colors.surfaceTertiary}>{o.priority ? "Priority offer · top-rated drivers see this first" : "Customer vehicle assigned nearby"}</Txt>
+                      </View>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Txt v="caption" color={colors.surfaceTertiary}>Offer window</Txt>
+                        <Txt v="num" color={colors.onSurfaceInverse}>{mins} min</Txt>
+                      </View>
                     </Row>
-                    <Txt v="body">
-                      {fmtDate(o.booking.date)} · {fmtTime(o.booking.time)} · {o.booking.service_id === "outstation" ? `${o.booking.days} day(s)` : o.booking.hours ? `${o.booking.hours} hrs` : "Duration as per quote"}
-                    </Txt>
-                    <Txt v="caption">
-                      Pickup area: {o.booking.pickup_area || o.booking.city_id} {o.booking.destination ? `→ ${o.booking.destination}` : ""} · {o.booking.vehicle_type} {o.booking.transmission}
-                    </Txt>
-                    {o.distance_km != null ? (
-                      <Row gap={4}>
-                        <Ionicons name="navigate" size={14} color={colors.success} />
-                        <Txt v="label" color={colors.success} testID={`offer-distance-${o.booking.ref}`}>
-                          {o.distance_km} km from you{o.rank && o.rank <= 3 ? " · you're among the nearest" : ""}
-                        </Txt>
+                    <Card testID={`offer-${b.ref}`} style={{ gap: space.md }}>
+                      {o.priority ? (
+                        <View testID={`offer-priority-${b.ref}`}>
+                          <Tag tone="warn" icon="flash" label="Priority offer" />
+                        </View>
+                      ) : null}
+                      <Row style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <View style={{ flex: 1, gap: 6 }}>
+                          <Tag tone="dark" icon="time-outline" label={`${b.service_name} (${b.service_id === "outstation" ? `${b.days} day(s)` : b.hours ? `${b.hours} hrs` : "as per quote"})`} />
+                          <Tag tone="success" label="Verified client vehicle" />
+                        </View>
+                        <View style={{ alignItems: "flex-end" }}>
+                          <Txt v="caption">Estimated net payout</Txt>
+                          <Txt v="display" testID={`offer-payout-${b.ref}`}>{money(o.payout)}</Txt>
+                        </View>
                       </Row>
-                    ) : null}
-                    {o.booking.notes ? <Txt v="caption">Note: {o.booking.notes}</Txt> : null}
-                    <Row style={{ justifyContent: "space-between" }}>
-                      <Txt v="label">Your payout</Txt>
-                      <Txt v="num" testID={`offer-payout-${o.booking.ref}`}>
-                        {money(o.payout)}
-                      </Txt>
-                    </Row>
-                    <Row>
-                      <Btn style={{ flex: 1 }} variant="outline" title="Decline" loading={busyId === o.id + "decline"} onPress={() => respond(o.id, "decline")} testID={`decline-offer-${o.booking.ref}`} />
-                      <Btn style={{ flex: 1 }} title="Accept" loading={busyId === o.id + "accept"} onPress={() => respond(o.id, "accept")} testID={`accept-offer-${o.booking.ref}`} />
-                    </Row>
-                  </Card>
+                      <Divider />
+                      <View style={{ backgroundColor: colors.tint, borderWidth: 1, borderColor: colors.tintBorder, borderRadius: radius.lg, padding: space.md, gap: space.sm }}>
+                        <Row style={{ justifyContent: "space-between" }}>
+                          <Row gap={6}>
+                            <Ionicons name="car-outline" size={16} color={colors.onSurface} />
+                            <Txt v="label" color={colors.onSurface}>Customer vehicle specs</Txt>
+                          </Row>
+                          {b.vehicle?.reg_number ? <Plate reg={b.vehicle.reg_number} /> : null}
+                        </Row>
+                        <Row gap={space.md}>
+                          <IconTile icon="car-sport-outline" tone="plain" size={44} />
+                          <View style={{ flex: 1 }}>
+                            <Txt v="h3" style={{ fontFamily: fonts.bold }}>{b.vehicle ? `${b.vehicle.make} ${b.vehicle.model}` : b.vehicle_type}</Txt>
+                            <Txt v="caption">{b.transmission} transmission · {b.vehicle_type}</Txt>
+                          </View>
+                        </Row>
+                      </View>
+                      <RouteLine
+                        stops={[
+                          {
+                            label: `Pickup location${o.distance_km != null ? ` (${o.distance_km} km away)` : ""}`,
+                            title: b.pickup_area || b.city_id,
+                            sub: `${fmtDate(b.date)} · ${fmtTime(b.time)}`,
+                            right: o.distance_km != null ? (
+                              <View testID={`offer-distance-${b.ref}`}>
+                                <Tag tone="success" label={o.rank && o.rank <= 3 ? "Among nearest" : `${o.distance_km} km`} />
+                              </View>
+                            ) : undefined,
+                          },
+                          ...(b.destination ? [{ label: "Drop / route", title: b.destination }] : []),
+                        ]}
+                      />
+                      {b.notes ? (
+                        <Row gap={space.sm} style={{ alignItems: "flex-start", borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.md }}>
+                          <Ionicons name="information-circle-outline" size={18} color={colors.onSurface} />
+                          <Txt v="body" style={{ flex: 1 }}>
+                            <Txt v="bodyBold">Special instructions: </Txt>
+                            {b.notes}
+                          </Txt>
+                        </Row>
+                      ) : null}
+                      <Row>
+                        <Btn style={{ flex: 1 }} variant="outline" icon="close" title="Decline" loading={busyId === o.id + "decline"} onPress={() => respond(o.id, "decline")} testID={`decline-offer-${b.ref}`} />
+                        <Btn style={{ flex: 1.4 }} variant="dark" icon="checkmark-circle-outline" title="Accept Trip" loading={busyId === o.id + "accept"} onPress={() => respond(o.id, "accept")} testID={`accept-offer-${b.ref}`} />
+                      </Row>
+                    </Card>
+                  </View>
                 );
               })
             )}

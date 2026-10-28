@@ -24,7 +24,7 @@ export default function Notifications() {
     else router.push(`/erp/booking/${n.booking_id}` as any);
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Notifications" />
       {q.isLoading ? (
         <Loader />

@@ -57,7 +57,7 @@ export default function Simulator() {
   const fields: [keyof S, string][] = [["price", "Avg price / booking (₹, pre-tax)"], ["payout", "Driver payout %"], ["discount", "Discount %"], ["volume", "Bookings / month"], ["cancel", "Cancellation %"], ["fixed", "Fixed costs / month (₹)"], ["marketing", "Extra marketing (₹)"], ["drivers", "Active drivers"], ["tripsPerDriver", "Trips per driver / month"]];
   const r = (x: number) => money(Math.round(x * 100));
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Pricing simulator" subtitle="Scenarios never change live tariffs" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>

@@ -36,7 +36,7 @@ export default function AdminDriver() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title={d.name || d.phone} subtitle={`${d.phone} · ${d.city_id || "—"}`} right={<StatusBadge status={d.status} testID="admin-driver-status" />} />
       <ScrollView refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} />} contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: insets.bottom + space.xl }}>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>

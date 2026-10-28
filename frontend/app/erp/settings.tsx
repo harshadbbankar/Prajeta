@@ -44,7 +44,7 @@ export default function Settings() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Settings & audit" />
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + space.xl }}>
         {TEXT.map(([k, l]) => <Field key={k} label={l} value={String(s[k] ?? "")} onChangeText={(v) => setS({ ...s, [k]: v })} testID={`settings-${k}`} autoCapitalize="none" />)}

@@ -23,7 +23,7 @@ export default function Customers() {
     }
   };
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surfaceSecondary }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <Header title="Customers" />
       <View style={{ padding: space.lg, paddingBottom: 0 }}>
         <Field placeholder="Search name or phone" value={search} onChangeText={setSearch} testID="admin-customers-search" />
