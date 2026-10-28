@@ -20,6 +20,12 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 7 (2026-06)
+- Trusted contacts (customer profile, max 5, +91 normalised): one-tap WhatsApp (wa.me pre-filled) of live trip link from share card and SOS alert from SOS card (user chose tap-to-send, not automatic).
+- Driver wallet: pending payout, today/week/month (IST), 14-day chart, per-trip breakdown (fare share + adjustment + badge bonus), payouts tab.
+- Badge bonus: owner sets ₹/trip in ERP settings (default Top Rated ₹50, Gold ₹100); added to booking.badge_bonus at completion, included in all payout sums.
+- Twilio WhatsApp OTP deferred by user (preview codes kept).
+
 ## Iteration 6 (2026-06)
 - SOS: customer (booking detail) and driver (trip screen) SOS button during live trips → sos_alerts (phone location if allowed, else driver last known); alerts owner/ops/support; ERP red dashboard banner + /erp/sos (call, acknowledge, resolve with note); public family page shows SOS banner; one active alert per booking side (unique partial index).
 - Nearest dispatch: broadcast offers in waves by distance to pickup (3 nearest now, next 5 +3 min, rest +6 min; badge = one wave earlier; first non-empty wave always immediate); background loop notifies later waves; driver offer shows km from pickup.

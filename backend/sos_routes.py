@@ -1,12 +1,14 @@
 """SOS safety alerts raised by the customer or driver during a live trip."""
 import asyncio
-from typing import Optional
+import re
+import secrets
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from pymongo.errors import DuplicateKeyError
 
-from core import db, now_iso, new_id, notify, get_current_user, require_roles, logger
+from core import db, now_iso, new_id, notify, get_current_user, require_customer, require_roles, logger
 from logic import add_event, notify_due_offers
 
 router = APIRouter(prefix="/api")
@@ -18,6 +20,54 @@ class SosIn(BaseModel):
     note: str = ""
     lat: Optional[float] = None
     lng: Optional[float] = None
+
+
+# ===================================================================== TRUSTED CONTACTS (customer)
+class ContactIn(BaseModel):
+    name: str
+    phone: str
+    relation: str = ""
+
+
+class ContactsIn(BaseModel):
+    contacts: List[ContactIn]
+
+
+def norm_phone(raw: str) -> str:
+    d = re.sub(r"\D", "", raw or "")
+    if len(d) == 12 and d.startswith("91"):
+        d = d[2:]
+    if len(d) == 11 and d.startswith("0"):
+        d = d[1:]
+    if len(d) != 10 or d[0] not in "6789":
+        raise HTTPException(400, f"Enter a valid 10-digit Indian mobile number ({raw})")
+    return "+91" + d
+
+
+@router.get("/me/contacts")
+async def get_contacts(user: dict = Depends(require_customer)):
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "trusted_contacts": 1})
+    return {"contacts": (u or {}).get("trusted_contacts") or []}
+
+
+@router.put("/me/contacts")
+async def put_contacts(body: ContactsIn, user: dict = Depends(require_customer)):
+    if len(body.contacts) > 5:
+        raise HTTPException(400, "You can save up to 5 trusted contacts")
+    out, seen = [], set()
+    for c in body.contacts:
+        name = c.name.strip()[:60]
+        if not name:
+            raise HTTPException(400, "Each contact needs a name")
+        ph = norm_phone(c.phone)
+        if ph == user.get("phone"):
+            raise HTTPException(400, "Add someone other than yourself")
+        if ph in seen:
+            continue
+        seen.add(ph)
+        out.append({"name": name, "phone": ph, "relation": c.relation.strip()[:30]})
+    await db.users.update_one({"id": user["id"]}, {"$set": {"trusted_contacts": out}})
+    return {"contacts": out}
 
 
 @router.post("/bookings/{booking_id}/sos")
@@ -63,6 +113,12 @@ async def raise_sos(booking_id: str, body: SosIn, user: dict = Depends(get_curre
     if side == "driver":  # tell the customer their driver asked for help; don't alert the driver if customer raised it
         await notify(other, "Safety alert raised", "Your driver contacted Prajeta safety. Our team is calling now.", booking_id)
     logger.warning("SOS raised on %s by %s", b["ref"], side)
+    if side == "customer":  # give the customer a live link + their contacts to alert family in one tap
+        token = b.get("share_token") or secrets.token_urlsafe(12)
+        if not b.get("share_token"):
+            await db.bookings.update_one({"id": booking_id}, {"$set": {"share_token": token, "shared_at": now_iso()}})
+        u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "trusted_contacts": 1})
+        return {**alert, "share_token": token, "contacts": (u or {}).get("trusted_contacts") or []}
     return alert
 
 
@@ -118,6 +174,8 @@ async def act_sos(alert_id: str, body: SosAction, user: dict = Depends(require_r
 
 
 async def offer_wave_loop():
+    await db.system_settings.update_one({"id": "main", "badge_bonus_top": {"$exists": False}},
+                                        {"$set": {"badge_bonus_top": 50, "badge_bonus_gold": 100}})
     # one active alert per booking + side (atomic duplicate protection)
     await db.sos_alerts.update_many({"status": "RESOLVED", "active": {"$exists": False}}, {"$set": {"active": False}})
     await db.sos_alerts.update_many({"status": {"$ne": "RESOLVED"}, "active": {"$exists": False}}, {"$set": {"active": True}})

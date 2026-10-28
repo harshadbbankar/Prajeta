@@ -1,13 +1,16 @@
 """Driver app API: onboarding, documents, offers, trip workflow, earnings."""
+from datetime import datetime, timedelta
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
-from core import db, now_iso, new_id, require_driver, notify, notify_admins, put_object, APP_NAME, get_settings, clean
+from core import db, now, now_iso, new_id, require_driver, notify, notify_admins, put_object, APP_NAME, get_settings, clean, rupees
 from logic import driver_eligibility, add_event, expire_offers, broadcast_offers, recompute_payment_status
 
+DEFAULT_BONUS = {"top": 50, "gold": 100}  # rupees per completed trip (owner can change in ERP settings)
+IST = timedelta(hours=5, minutes=30)
 router = APIRouter(prefix="/api/driver")
 
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/heic", "application/pdf"}
@@ -277,6 +280,12 @@ class CompleteIn(BaseModel):
 async def complete(booking_id: str, body: CompleteIn, user: dict = Depends(require_driver)):
     b = await transition(booking_id, user, ["IN_PROGRESS"], "COMPLETED", {"completed_at": now_iso()}, "TRIP_COMPLETED")
     s = await get_settings()
+    prof = await db.driver_profiles.find_one({"user_id": user["id"]}, {"_id": 0, "badge": 1})
+    badge = (prof or {}).get("badge")
+    bonus = int(float(s.get(f"badge_bonus_{badge}", DEFAULT_BONUS.get(badge, 0)) or 0) * 100) if badge else 0
+    if bonus > 0:
+        await db.bookings.update_one({"id": booking_id}, {"$set": {"badge_bonus": bonus, "badge_at_completion": badge}})
+        await notify(user["id"], "Badge bonus earned", f"+{rupees(bonus)} added to your payout for {b['ref']} — thanks for great service!", booking_id)
     res = await db.system_settings.find_one_and_update({"id": "main"}, {"$inc": {"invoice_counter": 1}},
                                                      return_document=True, projection={"_id": 0})
     await db.bookings.update_one({"id": booking_id}, {"$set": {"invoice_number": f"PRJ-INV-{res['invoice_counter']:05d}"}})
@@ -319,13 +328,39 @@ async def job_event(booking_id: str, body: EventIn, user: dict = Depends(require
 
 @router.get("/earnings")
 async def earnings(user: dict = Depends(require_driver)):
-    items = []
-    total = 0
+    """Wallet: totals, today/week/month, 14-day daily chart, per-trip history (base + adjustment + badge bonus), payouts."""
+    today = (now() + IST).date()
+    week_start = today - timedelta(days=today.weekday())
+    items, total, bonus_total = [], 0, 0
+    daily = {(today - timedelta(days=i)).isoformat(): {"amount": 0, "trips": 0} for i in range(13, -1, -1)}
+    periods = {"today": 0, "week": 0, "month": 0}
     async for b in db.bookings.find({"driver_id": user["id"], "status": "COMPLETED"}, {"_id": 0}).sort("completed_at", -1):
-        amt = b.get("driver_payout", 0) + b.get("driver_adjustment", 0)
+        base, adj, bonus = b.get("driver_payout", 0), b.get("driver_adjustment", 0), b.get("badge_bonus", 0)
+        amt = base + adj + bonus
         total += amt
+        bonus_total += bonus
+        ca = b.get("completed_at")
+        day = (datetime.fromisoformat(ca) + IST).date().isoformat() if ca else b["date"]
+        if day in daily:
+            daily[day]["amount"] += amt
+            daily[day]["trips"] += 1
+        if day == today.isoformat():
+            periods["today"] += amt
+        if day >= week_start.isoformat():
+            periods["week"] += amt
+        if day[:7] == today.isoformat()[:7]:
+            periods["month"] += amt
         items.append({"booking_id": b["id"], "ref": b["ref"], "service_name": b["service_name"], "date": b["date"],
-                      "amount": amt, "adjustment": b.get("driver_adjustment", 0)})
+                      "completed_at": b.get("completed_at"), "amount": amt, "base": base, "adjustment": adj,
+                      "bonus": bonus, "badge": b.get("badge_at_completion")})
     payouts = [clean(p) async for p in db.driver_payouts.find({"driver_id": user["id"]}, {"_id": 0}).sort("created_at", -1)]
     paid = sum(p["amount"] for p in payouts if p["status"] == "PAID")
-    return {"total_earned": total, "total_paid": paid, "pending": max(total - paid, 0), "items": items, "payouts": payouts}
+    s = await get_settings()
+    prof = await db.driver_profiles.find_one({"user_id": user["id"]}, {"_id": 0, "badge": 1, "payout_upi": 1, "payout_bank": 1})
+    badge = (prof or {}).get("badge")
+    return {"total_earned": total, "total_paid": paid, "pending": max(total - paid, 0), "items": items, "payouts": payouts,
+            "bonus_total": bonus_total, "periods": periods,
+            "daily": [{"date": k, **v} for k, v in daily.items()],
+            "badge": badge,
+            "bonus_rates": {k: int(float(s.get(f"badge_bonus_{k}", DEFAULT_BONUS[k]) or 0) * 100) for k in ("top", "gold")},
+            "payout_method": (prof or {}).get("payout_upi") or (prof or {}).get("payout_bank") or None}

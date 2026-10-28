@@ -165,8 +165,8 @@ export function Card({ children, style, onPress, testID, tone = "plain" }: Props
   );
 }
 
-export function Row({ children, style, gap = space.sm }: PropsWithChildren<{ style?: StyleProp<ViewStyle>; gap?: number }>) {
-  return <View style={[{ flexDirection: "row", alignItems: "center", gap }, style]}>{children}</View>;
+export function Row({ children, style, gap = space.sm, testID }: PropsWithChildren<{ style?: StyleProp<ViewStyle>; gap?: number; testID?: string }>) {
+  return <View testID={testID} style={[{ flexDirection: "row", alignItems: "center", gap }, style]}>{children}</View>;
 }
 
 export function Header({ title, subtitle, back = true, right }: { title: string; subtitle?: string; back?: boolean; right?: ReactNode }) {

@@ -6,9 +6,11 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 
 import { api } from "@/src/api";
+import { useContacts } from "@/src/components/TrustedContacts";
 import { usePolling } from "@/src/hooks";
 import { radius, space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Row, Sheet, Txt, useToast } from "@/src/ui";
+import { liveLink, openWhatsApp } from "@/src/whatsapp";
 
 /** SOS during a live trip — alerts Prajeta safety/ops instantly (customer or driver). */
 export function SosButton({ bookingId, role }: { bookingId: string; role: "customer" | "driver" }) {
@@ -16,7 +18,19 @@ export function SosButton({ bookingId, role }: { bookingId: string; role: "custo
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<boolean | string>(false);
+  const contacts = useContacts(role === "customer").data?.contacts ?? [];
+  const alertFamily = async (phone?: string) => {
+    setBusy(phone ?? "any");
+    try {
+      const r = await api<any>(`/bookings/${bookingId}/share`, { body: {} });
+      await openWhatsApp(`🚨 I've raised an SOS on my Prajeta trip and their safety team is helping. Please call me now. My live location: ${liveLink(r.token)}`, phone);
+    } catch (e: any) {
+      toast(e.message, "err");
+    } finally {
+      setBusy(false);
+    }
+  };
   const q = useQuery({ queryKey: ["sos", bookingId], queryFn: () => api<any>(`/bookings/${bookingId}/sos`) });
   const alert = q.data?.alert;
   const active = alert && alert.status !== "RESOLVED";
@@ -63,6 +77,14 @@ export function SosButton({ bookingId, role }: { bookingId: string; role: "custo
             </Txt>
           </Row>
           <Txt v="caption">Stay where it&apos;s safe. Our team will call you. In immediate danger, call 112.</Txt>
+          {role === "customer" ? (
+            <View style={{ gap: space.sm }}>
+              {contacts.map((c, i) => (
+                <Btn key={c.phone} small variant="outline" icon="logo-whatsapp" title={`Alert ${c.name}${c.relation ? ` (${c.relation})` : ""}`} loading={busy === c.phone} onPress={() => alertFamily(c.phone)} testID={`sos-alert-contact-${i}`} />
+              ))}
+              <Btn small variant="ghost" icon="logo-whatsapp" title={contacts.length ? "Alert someone else" : "Alert family on WhatsApp"} loading={busy === "any"} onPress={() => alertFamily()} testID="sos-alert-family" />
+            </View>
+          ) : null}
           <Btn title="Call 112 (Emergency)" icon="call" variant="dark" onPress={() => Linking.openURL("tel:112")} testID="sos-call-112" />
         </Card>
       ) : (
@@ -77,7 +99,7 @@ export function SosButton({ bookingId, role }: { bookingId: string; role: "custo
             </Txt>
           </View>
           <Field placeholder="What's happening? (optional)" value={note} onChangeText={setNote} multiline testID="sos-note-input" />
-          <Btn title="Send SOS now" icon="alert-circle" variant="danger" loading={busy} onPress={send} testID="sos-confirm-button" />
+          <Btn title="Send SOS now" icon="alert-circle" variant="danger" loading={busy === true} onPress={send} testID="sos-confirm-button" />
           <Btn title="Call 112 instead" icon="call" variant="outline" onPress={() => Linking.openURL("tel:112")} testID="sos-sheet-call-112" />
         </View>
       </Sheet>

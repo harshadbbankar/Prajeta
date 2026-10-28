@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 7 tested: Trusted Contacts, SOS share link plus contacts, badge bonus when a trip is completed, ERP badge bonus settings, and the driver Earnings Wallet. Backend: all 11 new pytest tests pass. A light regression run (sos_dispatch, share_badges_livemap, tracking_ratings_invoice) gave 59 passed and 1 skipped. Frontend at 375x667, all requested flows pass: adding, validating and removing a contact; share-to-contact and share-trip-whatsapp open the correct wa.me URL with the /live/ link; share-add-contacts goes to the profile; the SOS sheet and status card, where sos-alert-contact-0 and sos-alert-family open the SOS message to the correct number; ERP settings save and the out-of-range error toast; all Wallet cards, chart, tabs and the earning rows with the bonus line. I fixed one blocker: the Row component dropped testID, so trusted-contact-{i} never rendered. No deprecated Expo packages found (expo-av, expo-barcode-scanner and expo-background-fetch are absent).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/driver/earnings", "issue": "today/week/month and the 14-day chart use UTC dates (core.now() is UTC; completed_at[:10] is a UTC date). Trips completed between 00:00 and 05:30 IST are counted on the previous day. Use Asia/Kolkata for date boundaries."},
+      {"endpoint": "GET /api/admin/payouts", "issue": "'paid' adds up every driver_payouts row whatever its status, while the driver wallet counts only PAID rows. Pending amounts in ERP and in the driver Wallet will differ if any payout is not PAID."},
+      {"endpoint": "PUT /api/admin/settings", "issue": "badge_bonus_top/gold accept a JSON boolean (true is saved as 1.0) because float(True) works. Minor."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "src/ui.tsx Row", "issue": "Row did not pass testID to its View, so trusted-contact-{i} never rendered. FIXED by T1.", "testID": "trusted-contact-{i}", "priority": "low"}
+    ],
+    "integration_issues": [
+      {"flow": "TrustedContacts add", "issue": "Saving replaces the whole list using the cached `list`. If GET /me/contacts is still loading or has failed, the list is [] and saving a new contact deletes the existing ones on the server. The card also shows 0/5 with no loading or error state while loading. Turn off add until q.isSuccess and show loading and error states.", "affected_testIDs": ["add-trusted-contact", "contact-save"]},
+      {"flow": "WhatsApp share on mobile web", "issue": "openWhatsApp calls window.open after waiting for the /share API call, so the tap is no longer a user gesture. iOS Safari and some mobile browsers may block the new tab. Native apps are not affected because they use Linking.", "affected_testIDs": ["share-to-contact-{i}", "share-trip-whatsapp", "sos-alert-contact-{i}", "sos-alert-family"]},
+      {"flow": "ERP settings save", "issue": "Number('') is 0, so a cleared number field (badge bonus, and also tax_rate and the others) is saved as 0 with no warning.", "affected_testIDs": ["settings-badge_bonus_top", "settings-badge_bonus_gold"]}
+    ],
+    "design_issues": [
+      {"screen": "Driver Wallet", "issues": ["The wallet-tab-trips and wallet-tab-payouts chips are 36px high, below the 44px touch-target minimum", "Earning rows show the booking date while today/week buckets use completed_at, which can confuse drivers when the two differ"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_contacts_wallet_bonus.py", "/app/test_reports/pytest/pytest_iter7.xml"],
+  "action_items": [
+    "TrustedContacts: turn off add/remove until the contacts query has loaded, and show loading and error states so a save never wipes the saved contacts",
+    "driver/earnings: use IST (Asia/Kolkata) for the today, week, month and daily buckets",
+    "admin/payouts: count only PAID payouts in 'paid', or document why PENDING ones are included, so it matches the driver wallet",
+    "Optional: make the wallet tab chips at least 44px high; reject boolean and empty values for badge bonus settings; on web, open the WhatsApp tab during the tap itself (synchronously) to avoid popup blockers"
+  ],
+  "critical_code_review_comments": [
+    "Badge bonus is worked out only when the trip is completed, from the driver's badge at that moment. completion is idempotent because the IN_PROGRESS→COMPLETED transition can only happen once, so there is no double bonus",
+    "sos_routes.offer_wave_loop also seeds the badge bonus defaults at startup, which mixes unrelated work into one function; consider moving the seeding to the startup hook",
+    "The project has existing TypeScript errors (e.g. app/admin/bookings.tsx RefreshControl onRefresh types). Row's missing testID prop would have been caught by tsc"
+  ],
+  "updated_files": ["/app/frontend/src/ui.tsx (Row now forwards testID)", "/app/backend/tests/test_contacts_wallet_bonus.py (new)"],
+  "success_rate": {"backend": "100% (11/11 new, 59/59 regression + 1 skip)", "frontend": "100% of requested flows (after testID fix)"},
+  "seed_data_creation": "Test bookings PRJ-9S789XSU (completed, top badge, badge_bonus 5000 paise) and PRJ-3QA7NGYE (completed, no badge) for demo driver Ravi. Ravi's badge was restored to None. TEST_Mom contact restored for the customer. All SOS alerts I created were resolved (0 active). Badge settings restored to 50/100. Booking 6acad2db (PRJ-3YB57793) is still ACCEPTED with sos_active=false.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest with -n 0 (pytest.ini sets xdist) and EXPO_BACKEND_URL taken from EXPO_PUBLIC_BACKEND_URL in frontend/.env. For WhatsApp tests, stub window.open with add_init_script and read the URLs from window.__opened. The SOS confirm button can report 'outside viewport' while the sheet animates; use dispatch_event('click') or wait first.",
+  "rca_of_issue": "trusted-contact-{i} was missing because Row in src/ui.tsx did not accept or forward a testID prop."
+}

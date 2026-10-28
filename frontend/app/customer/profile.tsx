@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
+import { TrustedContacts } from "@/src/components/TrustedContacts";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Row, Txt, useToast } from "@/src/ui";
@@ -71,5 +72,5 @@ export function ProfileScreen({ extra }: { extra?: React.ReactNode }) {
 }
 
 export default function CustomerProfile() {
-  return <ProfileScreen />;
+  return <ProfileScreen extra={<TrustedContacts />} />;
 }

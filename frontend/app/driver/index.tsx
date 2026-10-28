@@ -163,7 +163,7 @@ export default function DriverHome() {
               <Ionicons name={p.badge === "gold" ? "trophy" : "ribbon"} size={20} color={colors.warning} />
               <Txt v="h3">{p.badge === "gold" ? "Gold Star Driver" : "Top Rated"}</Txt>
             </Row>
-            <Txt v="caption">Thanks for great service! You see new booking offers before other drivers.</Txt>
+            <Txt v="caption">Thanks for great service! You see new booking offers before other drivers and earn a bonus on every completed trip.</Txt>
           </Card>
         ) : null}
         {active.map((j) => (

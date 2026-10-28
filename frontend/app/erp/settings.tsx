@@ -10,7 +10,7 @@ import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Header, Loader, Row, Txt, useToast } from "@/src/ui";
 
 const TEXT: [string, string][] = [["company_name", "Company name"], ["legal_name", "Legal entity"], ["tagline", "Hero headline"], ["support_phone", "Support phone"], ["support_email", "Support email"], ["whatsapp_link", "WhatsApp link"], ["business_hours", "Business hours"], ["address", "Address"]];
-const NUM: [string, string][] = [["tax_rate", "GST %"], ["advance_percent", "Advance to confirm %"], ["driver_share_percent", "Driver share %"], ["gateway_fee_percent", "Gateway fee %"]];
+const NUM: [string, string][] = [["tax_rate", "GST %"], ["advance_percent", "Advance to confirm %"], ["driver_share_percent", "Driver share %"], ["gateway_fee_percent", "Gateway fee %"], ["badge_bonus_top", "Top Rated bonus ₹/trip"], ["badge_bonus_gold", "Gold Star bonus ₹/trip"]];
 
 export default function Settings() {
   const { colors } = useTheme();
@@ -28,6 +28,11 @@ export default function Settings() {
     setBusy(true);
     try {
       const body = { ...s };
+      const blank = NUM.find(([k]) => String(body[k] ?? "").trim() === "" || isNaN(Number(body[k])));
+      if (blank) {
+        toast(`${blank[1]} needs a number`, "err");
+        return;
+      }
       NUM.forEach(([k]) => (body[k] = Number(body[k])));
       await api("/admin/settings", { method: "PUT", body });
       queryClient.invalidateQueries({ queryKey: ["config"] });

@@ -42,7 +42,7 @@ async def metrics(bookings: list, s, e, settings: dict) -> dict:
     active = [b for b in bookings if b["status"] not in ("COMPLETED", "CANCELLED")]
     gbv = sum(b.get("fare", {}).get("total", 0) for b in bookings if b["status"] != "CANCELLED")
     revenue = sum(b["fare"].get("subtotal", 0) - b["fare"].get("discount", 0) for b in completed)
-    payouts = sum(b.get("driver_payout", 0) + b.get("driver_adjustment", 0) for b in completed)
+    payouts = sum(b.get("driver_payout", 0) + b.get("driver_adjustment", 0) + b.get("badge_bonus", 0) for b in completed)
     pays = [p async for p in db.payments.find({"booking_id": {"$in": list(ids)}, "status": {"$in": ["paid", "refunded", "partially_refunded", "refund_pending"]}}, {"_id": 0})]
     refunds = sum(p.get("refunded_amount", 0) for p in pays)
     collections = sum(p["amount"] for p in pays) - refunds
@@ -146,14 +146,15 @@ async def driver_detail(user_id: str, user: dict = Depends(VERIFY)):
     if not p:
         raise HTTPException(404, "Driver not found")
     p["documents"] = [{k: v for k, v in d.items() if k != "path"} | {"has_file": bool(d.get("path"))} for d in p.get("documents", [])]
-    jobs = [{k: b.get(k) for k in ("id", "ref", "service_name", "date", "status", "driver_payout")}
+    jobs = [{k: b.get(k) for k in ("id", "ref", "service_name", "date", "status", "driver_payout", "driver_adjustment", "badge_bonus")}
             async for b in db.bookings.find({"driver_id": user_id}, {"_id": 0}).sort("date", -1).limit(50)]
     offers = defaultdict(int)
     async for a in db.booking_assignments.find({"driver_id": user_id}, {"_id": 0, "status": 1}):
         offers[a["status"]] += 1
     reviews = [clean(r) async for r in db.reviews.find({"driver_id": user_id}, {"_id": 0}).sort("created_at", -1).limit(20)]
     payouts = [clean(x) async for x in db.driver_payouts.find({"driver_id": user_id}, {"_id": 0})]
-    earned = sum(b.get("driver_payout", 0) for b in jobs if b["status"] == "COMPLETED")
+    earned = sum((b.get("driver_payout") or 0) + (b.get("driver_adjustment") or 0) + (b.get("badge_bonus") or 0)
+                 for b in jobs if b["status"] == "COMPLETED")
     complaints = await db.support_tickets.count_documents({"booking_id": {"$in": [j["id"] for j in jobs]}, "category": {"$in": ["incident", "complaint"]}})
     return {**p, "jobs": jobs, "offer_stats": dict(offers), "reviews": reviews, "payouts": payouts, "earned": earned,
             "paid": sum(x["amount"] for x in payouts), "complaints": complaints}
@@ -547,8 +548,18 @@ async def settings_get(user: dict = Depends(ANY_STAFF)):
 async def settings_put(body: dict, user: dict = Depends(SUPER)):
     allowed = {"company_name", "legal_name", "tagline", "support_phone", "support_email", "whatsapp_link",
                "business_hours", "address", "tax_rate", "advance_percent", "driver_share_percent", "gateway_fee_percent",
-               "cash_enabled", "bookings_enabled"}
+               "cash_enabled", "bookings_enabled", "badge_bonus_top", "badge_bonus_gold"}
     data = {k: v for k, v in body.items() if k in allowed}
+    for k in ("badge_bonus_top", "badge_bonus_gold"):
+        if k in data:
+            if isinstance(data[k], bool) or data[k] in ("", None):
+                raise HTTPException(400, "Badge bonus must be a number")
+            try:
+                data[k] = float(data[k])
+            except (TypeError, ValueError):
+                raise HTTPException(400, "Badge bonus must be a number")
+            if not 0 <= data[k] <= 5000:
+                raise HTTPException(400, "Badge bonus must be between ₹0 and ₹5,000 per trip")
     await db.system_settings.update_one({"id": "main"}, {"$set": data})
     await audit(user, "settings_update", "system_settings", "main", data)
     return await get_settings()
@@ -633,9 +644,9 @@ async def payouts(user: dict = Depends(FINANCE)):
     out = []
     async for p in db.driver_profiles.find({"status": {"$in": ["APPROVED", "SUSPENDED"]}}, {"_id": 0}):
         earned = 0
-        async for b in db.bookings.find({"driver_id": p["user_id"], "status": "COMPLETED"}, {"_id": 0, "driver_payout": 1, "driver_adjustment": 1}):
-            earned += b.get("driver_payout", 0) + b.get("driver_adjustment", 0)
-        paid = sum([x["amount"] async for x in db.driver_payouts.find({"driver_id": p["user_id"]}, {"_id": 0})])
+        async for b in db.bookings.find({"driver_id": p["user_id"], "status": "COMPLETED"}, {"_id": 0, "driver_payout": 1, "driver_adjustment": 1, "badge_bonus": 1}):
+            earned += b.get("driver_payout", 0) + b.get("driver_adjustment", 0) + b.get("badge_bonus", 0)
+        paid = sum([x["amount"] async for x in db.driver_payouts.find({"driver_id": p["user_id"], "status": "PAID"}, {"_id": 0})])
         out.append({"driver_id": p["user_id"], "name": p["name"], "upi": p.get("payout_upi"), "earned": earned,
                     "paid": paid, "pending": max(earned - paid, 0)})
     history = [clean(x) async for x in db.driver_payouts.find({}, {"_id": 0}).sort("created_at", -1).limit(100)]
