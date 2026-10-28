@@ -1,0 +1,50 @@
+{
+  "summary": "Iteration 8 tested: Emergent Google sign-in (session exchange), adding a mobile number with OTP, the phone requirement for booking and driver submit, push register, and notify staying non-blocking. Backend: 20/20 new pytest tests pass (tests/test_google_push_phone.py). Regression: test_sos_dispatch and test_tracking_ratings_invoice gave 39/41 with -n 2. The 2 TestInvoice failures come from the loadscope worker split, which breaks the shared `trip` fixture; all 21 pass with -n 0, so this is not an app bug. Push: 36 notify calls in the regression run each logged 'Push failed (non-blocking)' because the key is a placeholder. All in-app notifications were still created and there were no unhandled exceptions. Frontend at 375x667, all requested flows pass: the Google button label changes for the driver role; the Google tap redirects to auth.emergentagent.com and stores google_signup_role; a bogus session_id in the hash or query shows login-error 'Google sign-in expired'; phone OTP login sends customer to /customer, driver to /driver and owner to /admin; opening /login while logged in redirects home; with the TEST_g1 token, profile-phone shows 'No mobile number yet' and profile-email shows the email with '· Google'; the AddPhone flow works (Send stays disabled until 10 digits, preview code shows, a wrong code gives a toast, the right code hides the card and shows +91...). The Google driver (TEST_g2) sees the AddPhone card with the driver wording, and a booking without a phone shows book-error. No crash from expo-notifications on web and no page errors. Two real bugs found: (1) ProfileScreen loses the name/email prefill on a deep link or reload, and (2) PUT /auth/me accepts empty or unverified email, which can wipe a Google user's email, cause a 500, or let someone take over a Google identity. No deprecated Expo packages found.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/auth/me", "issue": "The email field has no validation and is not checked for uniqueness or verification, but Google sign-in now uses email as the identity key. (a) Saving email '' wipes a Google user's email; their next Google login then creates a NEW empty account and they lose their bookings. Reproduced: TEST_g2 email set to ''. (b) Once one user has email '', the next user who saves '' gets 500 Internal Server Error (DuplicateKeyError on email_unique_set, because '' is a string). Reproduced with demo customer 9000000003. (c) A phone user can claim someone else's Gmail address before that person signs up. When the real owner later signs in with Google, they land in the claimer's account. Fix: ignore or unset empty strings, lower-case and validate the email, return 409 when the email is taken, and ideally make email read-only for google=True users and do not match Google logins to emails that were typed in and never verified.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/phone/verify", "issue": "Uniqueness is checked with find-then-update. If two requests race, the unique index raises DuplicateKeyError and the user gets an unhandled 500 instead of 409. Catch DuplicateKeyError and return 409."},
+      {"endpoint": "POST /api/register-push", "issue": "If the relay returns 4xx (other than 401), resp.raise_for_status() raises an httpx error, which becomes a raw 500. Map it to 400 or 502 with a message. Expected in preview: 500 'EMERGENT_PUSH_KEY missing or invalid'."},
+      {"endpoint": "core.notify", "issue": "asyncio.create_task(push_for_notification(...)) does not keep a reference to the task. Python may garbage-collect tasks that nothing references before they finish. Keep them in a module-level set and use add_done_callback(discard)."},
+      {"endpoint": "Google session failure (web)", "issue": "On a failed exchange, session_id stays in the URL. It is only cleaned up after success."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/customer/profile.tsx ProfileScreen", "issue": "useState(user?.name) and useState(user?.email) are set once, when the screen first mounts. If you open /customer/profile or /driver/profile directly or reload, the screen mounts before /auth/me returns, so profile-name-input and profile-email-input stay EMPTY. Reproduced: deep link gives '' and '', tab navigation gives 'TEST G1'. Tapping Save then sends name '' and email '', which wipes the name and email (see the backend critical issue). Fix: sync the fields with useEffect when user changes, and send only fields that changed or are not empty.", "testID": "profile-name-input / profile-email-input / profile-save-button", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Booking without a mobile number", "issue": "A Google customer with no phone fills in the whole booking form and is only blocked at the last step (book-error). Better: show the AddPhone card or a 'Add mobile number' link at the top of /book, and on driver home/onboarding for drivers without a phone. Today the driver home only shows 'Complete onboarding'.", "affected_testIDs": ["book-submit-button", "book-error", "onb-submit-button"]}
+    ],
+    "design_issues": [
+      {"screen": "Login", "issues": ["login-role-customer and login-role-driver chips are 36px high, below the 44px touch-target minimum"]},
+      {"screen": "Profile AddPhone", "issues": ["The 'Change number' ghost button text wraps onto 2 lines at 375px width"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_google_push_phone.py", "/app/test_reports/pytest/pytest_iter8.xml"],
+  "action_items": [
+    "HIGH: PUT /auth/me: reject or ignore empty email, validate and lower-case it, return 409 for an email that is already used (no 500), and block editing email for Google accounts (or never use an unverified, typed-in email to match Google logins)",
+    "HIGH: ProfileScreen: re-sync the name/email state when user loads (useEffect on user), so a deep link or reload does not show empty fields that wipe data on Save",
+    "POST /auth/phone/verify: catch DuplicateKeyError and return 409",
+    "core.notify: keep references to the background push tasks",
+    "UX: show the AddPhone prompt (or a link) before the booking form and on driver home/onboarding when user.phone is null",
+    "Update /app/memory/test_credentials.md: it does not document the TEST_g1/TEST_g2 Google test users or how to mint their tokens with make_token (the review request says it should)",
+    "Optional: make the login role chips at least 44px high; clean session_id from the URL after a failed Google exchange"
+  ],
+  "critical_code_review_comments": [
+    "The google_session staff block (403 for non-customer/driver roles) and the restricted-account check look correct. New users get phone None, which the partial unique index (phone_unique_set, $type string) allows. Multiple users with a null phone coexist, verified",
+    "auth.tsx handles session_id before reading the stored token and dedupes with a Set. registerForPush is guarded for web and simulators. The _layout notification handler and listeners are guarded with Platform.OS !== 'web'. No web crash",
+    "Push deep links (/booking/:id, /trip/:id, /erp/booking/:id, /notifications) all exist as routes",
+    "pytest.ini forces -n 2 --dist loadscope. Older suites that share fixtures across classes (test_tracking_ratings_invoice TestInvoice uses trip['b'] from another class) fail under it; run them with -n 0"
+  ],
+  "updated_files": ["/app/backend/tests/test_google_push_phone.py (new)"],
+  "success_rate": {"backend": "100% (20/20 new); regression 39/41 parallel and 21/21 serial for the failing file (test-infra only)", "frontend": "100% of requested flows; 1 HIGH bug found (profile prefill)"},
+  "seed_data_creation": "The test creates and deletes TEST_gx_* Google users. TEST_g1 and TEST_g2 are reset to phone=None with their original names and emails (TEST_g2's email was briefly wiped by the PUT /auth/me repro and then restored). TEST_g2's draft driver_profile is deleted. One demo-customer booking (TEST_ pickup) was created and cancelled. otp_requests are cleared.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "To log in as a Google user on web: localStorage.setItem('auth_token', JSON.stringify(token)), where the token comes from core.make_token('TEST_g1') (load backend/.env first). A same-document hash change does not re-run AuthProvider, so to test the session_id error use a fresh page.goto or a query param. Demo phones accept 123456 and are rejected by phone/verify with 409 for other users. The push relay returns 401 in preview.",
+  "rca_of_issue": "Profile wipe: ProfileScreen uses useState(user?.name) at first mount, before AuthProvider has the user (deep link or reload), so the fields are ''. Save sends {name:'',email:''}. update_me filters only None values, so the empty strings are saved. For Google users this removes the email, the only key used to look them up at the next Google login, and a second '' email hits the email_unique_set partial index (500). Mitigation: sync the state with useEffect, drop empty strings on the backend, validate the email and return 409."
+}

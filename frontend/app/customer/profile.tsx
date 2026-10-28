@@ -1,6 +1,6 @@
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { TrustedContacts } from "@/src/components/TrustedContacts";
+import { AddPhone } from "@/src/components/AddPhone";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Row, Txt, useToast } from "@/src/ui";
@@ -21,6 +22,10 @@ export function ProfileScreen({ extra }: { extra?: React.ReactNode }) {
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setName(user?.name ?? "");
+    setEmail(user?.email ?? "");
+  }, [user?.name, user?.email]);
   const save = async () => {
     setBusy(true);
     try {
@@ -47,12 +52,14 @@ export function ProfileScreen({ extra }: { extra?: React.ReactNode }) {
       </View>
       <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, gap: space.lg, paddingBottom: (usesNativeTabs ? insets.bottom : 0) + space.xl }}>
         <Card tone="grey">
-          <Txt v="h3" testID="profile-phone">{user?.phone}</Txt>
+          <Txt v="h3" testID="profile-phone">{user?.phone ?? "No mobile number yet"}</Txt>
+          {user?.email ? <Txt v="caption" testID="profile-email">{user.email}{user.google ? " · Google" : ""}</Txt> : null}
           <Txt v="caption">Role: {user?.role}</Txt>
         </Card>
+        <AddPhone />
         {extra}
         <Field label="Name" value={name} onChangeText={setName} testID="profile-name-input" />
-        <Field label="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} testID="profile-email-input" />
+        <Field label="Email" keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} editable={!user?.google} testID="profile-email-input" />
         <Btn title="Save" variant="dark" loading={busy} onPress={save} testID="profile-save-button" />
         <View>
           {links.map(([icon, label, href]) => (

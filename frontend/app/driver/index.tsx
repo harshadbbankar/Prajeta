@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { LocationShare } from "@/src/components/LocationShare";
+import { AddPhone } from "@/src/components/AddPhone";
 import { useAuth } from "@/src/auth";
 import { fmtDate, fmtTime, usePolling } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
@@ -157,6 +158,7 @@ export default function DriverHome() {
         ) : null}
 
         {approved && p.online && !active.length ? <LocationShare presence /> : null}
+        <AddPhone />
         {approved && p.badge ? (
           <Card testID="driver-badge-card" style={{ gap: 4, borderColor: colors.warning, borderWidth: 1.5 }}>
             <Row>

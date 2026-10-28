@@ -45,6 +45,7 @@
       "expo-status-bar",
       "@react-native-vector-icons/ionicons",
       "expo-sharing",
+      "expo-notifications",
       [
         "expo-location",
         {

@@ -1,4 +1,5 @@
 """Shared core: DB, auth, helpers, object storage."""
+import asyncio
 import os
 import uuid
 import secrets
@@ -140,10 +141,18 @@ async def audit(actor: dict, action: str, entity: str, entity_id: str, details: 
 async def notify(user_id: Optional[str], title: str, body: str, booking_id: Optional[str] = None):
     if not user_id:
         return
+    nid = new_id()
     await db.notifications.insert_one({
-        "id": new_id(), "user_id": user_id, "title": title, "body": body,
+        "id": nid, "user_id": user_id, "title": title, "body": body,
         "booking_id": booking_id, "read": False, "created_at": now_iso(),
     })
+    from google_push_routes import push_for_notification  # lazy: avoids circular import
+    task = asyncio.create_task(push_for_notification(user_id, title, body, booking_id, nid))
+    _push_tasks.add(task)
+    task.add_done_callback(_push_tasks.discard)
+
+
+_push_tasks: set = set()
 
 
 async def notify_admins(title: str, body: str, booking_id: Optional[str] = None):

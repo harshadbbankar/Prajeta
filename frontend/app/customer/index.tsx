@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
+import { AddPhone } from "@/src/components/AddPhone";
 import { fmtDate, fmtTime, priceFrom, useConfig } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { fonts, radius, space, useTheme } from "@/src/theme";
@@ -43,6 +44,7 @@ export default function CustomerHome() {
         refreshControl={<RefreshControl refreshing={bookings.isRefetching} onRefresh={() => { bookings.refetch(); notif.refetch(); }} />}
         contentContainerStyle={{ padding: space.lg, gap: space.xl, paddingBottom: bottomChrome + space.xl }}
       >
+        <AddPhone />
         <Card tone="dark" style={{ gap: space.md }}>
           <Txt v="title" color={colors.onSurfaceInverse}>
             Need a driver for your car?

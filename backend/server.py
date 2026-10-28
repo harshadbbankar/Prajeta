@@ -1,5 +1,6 @@
 """Prajeta API: auth (WhatsApp OTP), public website, customer bookings, payments, support."""
 import os
+import re
 import hmac
 import html
 import json
@@ -10,6 +11,7 @@ from datetime import timedelta
 from typing import Optional
 
 import razorpay
+from pymongo.errors import DuplicateKeyError
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, Response
@@ -26,6 +28,7 @@ import admin_routes
 import staff_routes
 import tracking_routes
 import sos_routes
+import google_push_routes
 import asyncio
 from licence import licence_loop
 
@@ -160,8 +163,23 @@ class MeIn(BaseModel):
 
 @api.put("/auth/me")
 async def update_me(body: MeIn, user: dict = Depends(get_current_user)):
-    data = {k: v for k, v in body.model_dump().items() if v is not None}
-    await db.users.update_one({"id": user["id"]}, {"$set": data})
+    data = {k: v for k, v in body.model_dump().items() if v is not None and (not isinstance(v, str) or v.strip())}
+    if "name" in data:
+        data["name"] = data["name"].strip()[:80]
+    if "email" in data:
+        email = data["email"].strip().lower()
+        if user.get("google") and email != (user.get("email") or ""):
+            raise HTTPException(400, "Your email comes from your Google account and can't be changed here")
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            raise HTTPException(400, "Enter a valid email address")
+        if await db.users.find_one({"email": email, "id": {"$ne": user["id"]}}, {"_id": 0, "id": 1}):
+            raise HTTPException(409, "This email is already used by another account")
+        data["email"] = email
+    if data:
+        try:
+            await db.users.update_one({"id": user["id"]}, {"$set": data})
+        except DuplicateKeyError:
+            raise HTTPException(409, "This email is already used by another account")
     return await db.users.find_one({"id": user["id"]}, {"_id": 0})
 
 
@@ -263,6 +281,8 @@ def customer_view(b: dict) -> dict:
 
 @api.post("/bookings")
 async def create_booking(body: BookingIn, user: dict = Depends(require_customer)):
+    if not user.get("phone"):
+        raise HTTPException(400, "Add your mobile number in Profile before booking — your driver and our safety team need it.")
     existing = await db.bookings.find_one({"customer_id": user["id"], "idempotency_key": body.idempotency_key}, {"_id": 0})
     if existing:
         return customer_view(existing)
@@ -476,7 +496,7 @@ async def checkout_page(pid: str, user: dict = Depends(require_customer)):
     key = html.escape(RZP_KEY, quote=True)
     oid = html.escape(p["razorpay_order_id"], quote=True)
     desc = html.escape(f"{b['service_name']} · {b['ref']} · {'20% advance' if p['kind'] == 'advance' else 'Balance'}", quote=True)
-    phone = html.escape(user["phone"], quote=True)
+    phone = html.escape(user.get("phone") or "", quote=True)
     name = html.escape(user.get("name") or "", quote=True)
     return HTMLResponse(f"""<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Prajeta Payment</title><style>body{{font-family:-apple-system,Segoe UI,sans-serif;background:#F3F4F6;color:#171717;
@@ -681,12 +701,18 @@ app.include_router(admin_routes.router)
 app.include_router(staff_routes.router)
 app.include_router(tracking_routes.router)
 app.include_router(sos_routes.router)
+app.include_router(google_push_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 @app.on_event("startup")
 async def startup():
-    await db.users.create_index("phone", unique=True)
+    try:  # old index rejected multiple Google users without a phone
+        await db.users.drop_index("phone_1")
+    except Exception:
+        pass
+    await db.users.create_index("phone", unique=True, partialFilterExpression={"phone": {"$type": "string"}}, name="phone_unique_set")
+    await db.users.create_index("email", unique=True, partialFilterExpression={"email": {"$type": "string"}}, name="email_unique_set")
     await db.users.create_index("id", unique=True)
     await db.bookings.create_index("id", unique=True)
     await db.bookings.create_index("ref", unique=True)

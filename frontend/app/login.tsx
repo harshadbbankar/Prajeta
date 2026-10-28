@@ -1,12 +1,13 @@
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
 import { homeFor, useAuth, User } from "@/src/auth";
+import { exchangeSession, startGoogleLogin } from "@/src/googleAuth";
 import { space, radius, useTheme } from "@/src/theme";
 import { Btn, Card, Chip, Field, Header, Row, Txt, useToast } from "@/src/ui";
 
@@ -15,7 +16,31 @@ export default function Login() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { signIn } = useAuth();
+  const { signIn, user, authError, clearAuthError } = useAuth();
+  const [gBusy, setGBusy] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    if (params.next && ["customer", "corporate"].includes(user.role)) router.replace(params.next as any);
+    else router.replace(homeFor(user.role) as any);
+  }, [user, params.next]);
+  const google = async () => {
+    setErr("");
+    clearAuthError();
+    setGBusy(true);
+    try {
+      const sid = await startGoogleLogin(role as "customer" | "driver");
+      if (!sid) return; // web: page redirects; native: user cancelled
+      const r = await exchangeSession(sid);
+      if (r) {
+        await signIn(r.token, r.user);
+        toast(`Welcome${r.user.name ? ", " + r.user.name.split(" ")[0] : ""}!`);
+      }
+    } catch (e: any) {
+      setErr(e.message ?? "Google sign-in failed");
+    } finally {
+      setGBusy(false);
+    }
+  };
   const [role, setRole] = useState(params.role === "driver" ? "driver" : "customer");
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -51,9 +76,6 @@ export default function Login() {
       const r = await api<{ token: string; user: User }>("/auth/otp/verify", { body: { phone, code, role, name } });
       await signIn(r.token, r.user);
       toast(`Welcome${r.user.name ? ", " + r.user.name.split(" ")[0] : ""}!`);
-      if (params.next && ["customer", "corporate"].includes(r.user.role)) router.replace(params.next as any);
-      else if (r.user.role === "driver") router.replace("/driver");
-      else router.replace(homeFor(r.user.role) as any);
     } catch (e: any) {
       setErr(e.message);
     } finally {
@@ -91,8 +113,22 @@ export default function Login() {
                 </View>
               </Row>
             </View>
-            {err ? <Txt v="bodyBold" color={colors.error} testID="login-error">{err}</Txt> : null}
+            {err || authError ? <Txt v="bodyBold" color={colors.error} testID="login-error">{err || authError}</Txt> : null}
             <Btn title="Send code on WhatsApp" icon="logo-whatsapp" loading={busy} onPress={send} testID="login-send-otp-button" />
+            <Row style={{ gap: space.sm }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+              <Txt v="caption">or</Txt>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            </Row>
+            <Btn
+              title={role === "driver" ? "Continue with Google as a driver" : "Continue with Google"}
+              icon="logo-google"
+              variant="outline"
+              loading={gBusy}
+              onPress={google}
+              testID="login-google-button"
+            />
+            <Txt v="caption">Google sign-in is for customers and drivers. Add your mobile number later in Profile — it&apos;s needed before booking or applying as a driver.</Txt>
             <Txt v="caption">By continuing you agree to our Terms and Privacy Policy and consent to receive a verification message on WhatsApp.</Txt>
           </>
         ) : (

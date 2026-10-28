@@ -20,7 +20,7 @@ MAX_BYTES = 8 * 1024 * 1024
 async def my_profile(user: dict) -> dict:
     p = await db.driver_profiles.find_one({"user_id": user["id"]}, {"_id": 0})
     if not p:
-        p = {"id": new_id(), "user_id": user["id"], "name": user.get("name") or "", "phone": user["phone"],
+        p = {"id": new_id(), "user_id": user["id"], "name": user.get("name") or "", "phone": user.get("phone") or "",
              "address": "", "city_id": user.get("city_id") or "", "areas": [], "experience_years": 0,
              "licence_number": "", "licence_expiry": "", "vehicle_types": [], "transmissions": [], "services": [],
              "availability": "", "payout_upi": "", "payout_bank": "", "consent": False,
@@ -77,6 +77,8 @@ async def submit(user: dict = Depends(require_driver)):
     p = await my_profile(user)
     if p["status"] not in ("DRAFT", "REJECTED"):
         raise HTTPException(400, "Application already submitted")
+    if not user.get("phone"):
+        raise HTTPException(400, "Add and verify your mobile number in Profile before submitting")
     missing = [f for f in ("name", "address", "city_id", "licence_number", "licence_expiry") if not p.get(f)]
     if missing:
         raise HTTPException(400, "Please complete: " + ", ".join(m.replace("_", " ") for m in missing))
