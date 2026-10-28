@@ -20,6 +20,11 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 4 (2026-06)
+- Live ride tracking: driver trip screen shares foreground GPS (expo-location, permission flow w/ Open Settings) → POST /api/driver/jobs/{id}/location; customer booking screen shows live map (OSM tiles proxied via /api/tiles, cached) + ETA/distance to pickup or destination (GET /api/bookings/{id}/tracking; Nominatim geocode cached, city-centre fallback).
+- Ratings: review tags, driver notified, low ratings alert admins; driver profile "My ratings"; ERP More → Driver ratings leaderboard (Bayesian score, low-rating alerts).
+- Receipts: invoice shows 20% advance, advance paid, balance paid, remaining balance + status stamp; native downloads PDF (expo-print + share sheet), web opens printable page.
+
 ## Iteration 3 (2026-06)
 - Staff performance (ERP → More → Staff performance, owner/super_admin): per-staff tickets handled/resolved, first-response time, driver approvals, docs verified, dispatches & avg dispatch time (confirmed → offered), quotes, finance actions, weighted score, period filters.
 - Document expiry reminders extended to identity, police verification and address proof (30/15/7/1 days); expired identity/police docs pause the driver (docs_expired) until a valid copy is verified. Driver "Valid till" inputs, driver home warning card, ERP "Document expiry" list per document.

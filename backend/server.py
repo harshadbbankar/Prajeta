@@ -24,6 +24,7 @@ from seed import seed
 import driver_routes
 import admin_routes
 import staff_routes
+import tracking_routes
 import asyncio
 from licence import licence_loop
 
@@ -361,9 +362,13 @@ async def reschedule(booking_id: str, body: RescheduleIn, user: dict = Depends(r
     return {"ok": True}
 
 
+REVIEW_TAGS = {"Punctual", "Safe driving", "Polite", "Well dressed", "Knows routes", "Careful with car"}
+
+
 class ReviewIn(BaseModel):
     rating: int
     comment: str = ""
+    tags: list[str] = []
 
 
 @api.post("/bookings/{booking_id}/review")
@@ -376,8 +381,11 @@ async def review(booking_id: str, body: ReviewIn, user: dict = Depends(require_c
     if await db.reviews.find_one({"booking_id": booking_id}):
         raise HTTPException(400, "You have already rated this trip")
     await db.reviews.insert_one({"id": new_id(), "booking_id": booking_id, "customer_id": user["id"],
-                                 "driver_id": b.get("driver_id"), "rating": body.rating, "comment": body.comment,
-                                 "created_at": now_iso()})
+                                 "driver_id": b.get("driver_id"), "rating": body.rating, "comment": body.comment.strip()[:500],
+                                 "tags": [t for t in body.tags if t in REVIEW_TAGS][:6], "created_at": now_iso()})
+    await notify(b.get("driver_id"), f"New {body.rating}★ rating", f"A customer rated your trip {b['ref']}", booking_id)
+    if body.rating <= 2:
+        await notify_admins("Low driver rating", f"{b['ref']} rated {body.rating}★ — please review", booking_id)
     ratings = [r["rating"] async for r in db.reviews.find({"driver_id": b.get("driver_id")}, {"_id": 0, "rating": 1})]
     if ratings:
         await db.driver_profiles.update_one({"user_id": b["driver_id"]},
@@ -538,22 +546,53 @@ async def invoice(booking_id: str, user: dict = Depends(get_current_user)):
     if not b or (user["role"] not in ADMIN_ROLES and b["customer_id"] != user["id"]):
         raise HTTPException(404, "Invoice not found")
     s = await get_settings()
+    return HTMLResponse(await invoice_html(b, s))
+
+
+async def invoice_html(b: dict, s: dict) -> str:
+    esc = lambda v: html.escape(str(v or ""))
     f = b.get("fare") or {}
-    rows = "".join(f"<tr><td>{html.escape(l['label'])}</td><td align=right>{rupees(l['amount'])}</td></tr>" for l in f.get("lines", []))
-    pays = "".join([f"<tr><td>{p['kind'].title()} · {p['method']} · {(p.get('paid_at') or '')[:10]}</td><td align=right>{rupees(p['amount'])}</td></tr>"
-                    async for p in db.payments.find({"booking_id": booking_id, "status": "paid"}, {"_id": 0})])
+    pays = [p async for p in db.payments.find({"booking_id": b["id"], "status": "paid"}, {"_id": 0}).sort("created_at", 1)]
+    adv_paid = sum(p["amount"] for p in pays if p.get("kind") == "advance")
+    bal_paid = sum(p["amount"] for p in pays if p.get("kind") != "advance")
+    total, adv = f.get("total", 0), f.get("advance", 0)
+    due = b.get("balance_due", 0)
+    rows = "".join(f"<tr><td>{esc(l['label'])}</td><td class=r>{rupees(l['amount'])}</td></tr>" for l in f.get("lines", []))
+    if f.get("discount"):
+        rows += f"<tr><td>Discount</td><td class=r>-{rupees(f['discount'])}</td></tr>"
+    pay_rows = "".join(f"<tr><td>{esc(p['kind']).title()} · {esc(p['method'])}<br><small>{esc((p.get('paid_at') or '')[:10])}"
+                       f"{' · ' + esc(p['razorpay_payment_id']) if p.get('razorpay_payment_id') else ''}</small></td>"
+                       f"<td class=r>{rupees(p['amount'])}</td></tr>" for p in pays) or "<tr><td>No payments yet</td><td></td></tr>"
     title = f"Tax Invoice {b['invoice_number']}" if b.get("invoice_number") else "Payment Receipt"
-    return HTMLResponse(f"""<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1">
-<title>{title}</title><style>body{{font-family:-apple-system,Segoe UI,sans-serif;color:#171717;max-width:640px;margin:24px auto;padding:16px}}
-table{{width:100%;border-collapse:collapse}}td{{padding:8px 0;border-bottom:1px solid #E5E7EB}}h1{{color:#E53935}}</style></head><body>
-<h1>{html.escape(s.get('company_name', 'Prajeta'))}</h1><p>{html.escape(s.get('legal_name', ''))}<br>{html.escape(s.get('support_email', ''))}</p>
-<h2>{title}</h2><p>Booking <b>{b['ref']}</b> · {html.escape(b['service_name'])} · {b['date']} {b['time']}<br>
-Customer: {html.escape(b.get('customer_name') or '')} ({b['customer_phone']})</p>
-<table>{rows}<tr><td>Discount</td><td align=right>-{rupees(f.get('discount', 0))}</td></tr>
-<tr><td>GST ({f.get('tax_rate', 18)}%)</td><td align=right>{rupees(f.get('tax', 0))}</td></tr>
-<tr><td><b>Total</b></td><td align=right><b>{rupees(f.get('total', 0))}</b></td></tr></table>
-<h3>Payments</h3><table>{pays or '<tr><td>No payments yet</td><td></td></tr>'}</table>
-<p><b>Balance due: {rupees(b.get('balance_due', 0))}</b></p><button onclick="window.print()">Print / Save PDF</button></body></html>""")
+    stamp = ("PAID IN FULL", "#16A34A") if total and due <= 0 else ("ADVANCE PAID", "#D97706") if adv_paid else ("UNPAID", "#E53935")
+    when = f"{b['date']} {b['time']}"
+    return f"""<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>{esc(title)} · {esc(b['ref'])}</title><style>
+body{{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#171717;max-width:680px;margin:0 auto;padding:24px;font-size:14px}}
+table{{width:100%;border-collapse:collapse}}td{{padding:8px 0;border-bottom:1px solid #E5E7EB;vertical-align:top}}.r{{text-align:right;white-space:nowrap}}
+h1{{color:#E53935;margin:0;font-size:26px}}h2{{margin:20px 0 4px;font-size:18px}}h3{{margin:20px 0 6px;font-size:15px}}small{{color:#6B7280}}
+.top{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}}.muted{{color:#6B7280}}
+.stamp{{border:2px solid {stamp[1]};color:{stamp[1]};font-weight:800;padding:6px 10px;border-radius:6px;letter-spacing:1px;font-size:12px}}
+.box{{background:#F5F5F5;border-radius:10px;padding:12px 16px;margin-top:12px}}.box tr:last-child td{{border:0}}
+.big td{{font-size:16px;font-weight:800}}button{{margin-top:20px;background:#E53935;color:#fff;border:0;border-radius:8px;padding:12px 18px;font-size:15px}}
+@media print{{button{{display:none}}body{{padding:0}}}}</style></head><body>
+<div class=top><div><h1>{esc(s.get('company_name', 'Prajeta'))}</h1><div class=muted>{esc(s.get('legal_name'))}<br>{esc(s.get('support_email'))} · {esc(s.get('support_phone'))}
+{('<br>GSTIN ' + esc(s['gstin'])) if s.get('gstin') else ''}</div></div><div class=stamp id=stamp>{stamp[0]}</div></div>
+<h2>{esc(title)}</h2><div class=muted>Issued {esc((b.get('completed_at') or b.get('created_at') or '')[:10])}</div>
+<table style="margin-top:12px"><tr><td>Booking</td><td class=r><b>{esc(b['ref'])}</b></td></tr>
+<tr><td>Service</td><td class=r>{esc(b['service_name'])}</td></tr><tr><td>Date &amp; time</td><td class=r>{esc(when)}</td></tr>
+<tr><td>City</td><td class=r>{esc(b.get('city_name') or b.get('city_id'))}</td></tr>
+<tr><td>Customer</td><td class=r>{esc(b.get('customer_name'))}<br><small>{esc(b['customer_phone'])}</small></td></tr></table>
+<h3>Fare</h3><table>{rows}<tr><td>GST ({f.get('tax_rate', 18)}%)</td><td class=r>{rupees(f.get('tax', 0))}</td></tr>
+<tr class=big><td>Total</td><td class=r>{rupees(total)}</td></tr></table>
+<div class=box><table>
+<tr><td>Booking advance ({f.get('advance_percent', 20)}%)</td><td class=r id=advance-due>{rupees(adv)}</td></tr>
+<tr><td>Advance paid</td><td class=r id=advance-paid>{rupees(adv_paid)}</td></tr>
+<tr><td>Balance paid</td><td class=r id=balance-paid>{rupees(bal_paid)}</td></tr>
+<tr class=big><td>Remaining balance</td><td class=r id=balance-remaining>{rupees(due)}</td></tr></table></div>
+<h3>Payments</h3><table>{pay_rows}</table>
+<p class=muted style="margin-top:20px">Fuel, tolls and parking are paid by the customer directly and are not part of this fare. This is a computer-generated document.</p>
+<button onclick="window.print()">Download / Print PDF</button></body></html>"""
 
 
 # ===================================================================== SUPPORT & NOTIFICATIONS
@@ -641,6 +680,7 @@ app.include_router(api)
 app.include_router(driver_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(staff_routes.router)
+app.include_router(tracking_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

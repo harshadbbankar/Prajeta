@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 4 covered Live Tracking, Ratings & Reviews and Booking Invoices. All 21 backend pytest checks pass. The frontend flows work end to end: customer live-tracking card with ETA, distance and markers (ACCEPTED and IN_PROGRESS), advance row, receipt opening in a new tab with correct ids and stamp, review sheet with stars and tags, your-rating, driver location permission and sharing (POSTs location), driver ratings card, and ERP Driver ratings with period chips. One HIGH issue: since Sept 2026 CARTO raster basemaps need an API key, so every map tile shows an 'API KEY REQUIRED' watermark instead of the street map. Markers still position correctly. No deprecated Expo packages detected (no expo-av, expo-barcode-scanner or expo-background-fetch).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/otp/send", "issue": "The limit of 5 OTP requests per 10 minutes also applies to DEMO phones, so automated test runs get HTTP 429 quickly. The tester cleared db.otp_requests for demo phones to continue. Consider exempting DEMO_PHONES while in preview."},
+      {"endpoint": "GET /api/bookings/{id}/tracking (geocode)", "issue": "tracking_routes.py:50-59 also caches the approximate city-centre fallback permanently in geocode_cache. A short Nominatim outage or rate limit therefore pins that address to the city centre forever. Do not cache approx results from exceptions, or give them a TTL."},
+      {"endpoint": "GET /api/admin/ratings", "issue": "Runs count_documents once per driver (N+1 queries, tracking_routes.py:146). Fine now, but slow with many drivers; use one aggregate. An invalid period ('xyz') silently returns 200 with default data."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TrackMap", "issue": "CARTO basemaps (https://{s}.basemaps.cartocdn.com/rastertiles/voyager/...) have required a free API key since 25 Sept 2026. Without '?key=' every tile returns a 2KB 'API KEY REQUIRED carto.com/basemaps/apikey' watermark image, so customers see no streets on the live map. Reference: /app/frontend/src/components/TrackMap.tsx:50", "testID": "tracking-map", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "booking/[id] review sheet", "issues": ["review-tag-* chips are 36px tall, below the 44px minimum touch target"]},
+      {"screen": "driver/profile My ratings", "issues": ["HBar draws a small red dot for buckets with 0 reviews (1★ = 0), which suggests a non-zero value"]},
+      {"screen": "booking/[id] LiveTracking", "issues": ["Measured polling is every ~10s instead of the intended 8s: requests at 1.8s, 9.9s, 19.9s, 30.1s. The parent's 10s booking poll re-renders, and useCallback([q]) recreates the callback, which resets the 8s interval (LiveTracking.tsx:18). Minor."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_tracking_ratings_invoice.py", "/app/backend/tests/setup_ui_iter4.py", "/app/backend/tests/extra_iter4.py", "/app/test_reports/pytest/pytest_iter4.xml"],
+  "action_items": [
+    "HIGH: Fix the map tiles. Either get a free CARTO key (carto.com/basemaps/apikey), add it as an env var (e.g. EXPO_PUBLIC_CARTO_KEY) and append '?key=' to the tile URL in TrackMap.tsx:50, or switch to another tile provider that allows this use. Note: tile.openstreetmap.org has a strict usage policy and is not meant for production apps.",
+    "Don't cache approximate geocode fallbacks permanently (tracking_routes.py:59)",
+    "Exempt DEMO_PHONES from the OTP rate limit in preview so automated tests aren't blocked",
+    "Optional: make review tag chips at least 44px tall; hide the HBar fill when the value is 0; stabilise the LiveTracking poll callback (use q.refetch directly)",
+    "Optional security: the invoice opens with the full long-lived JWT in ?token= (it ends up in browser history and proxy logs). Consider a short-lived invoice-only signed token."
+  ],
+  "critical_code_review_comments": [
+    "tracking_routes.py: lat/lng validation, driver ownership (404), status gate (400), customer ownership (404) and stale flag are all correct. ETA uses haversine × 1.35 at 22 km/h.",
+    "server.py review: rating range, COMPLETED-only, duplicate check and tag whitelist work. Driver notification and low-rating admin notification were verified.",
+    "invoice_html: ids advance-due, advance-paid, balance-paid, balance-remaining and the stamp (UNPAID, ADVANCE PAID, PAID IN FULL) all verified. Auth works with a Bearer header or ?token=; another user gets 404, a missing or bad token gets 401.",
+    "The invoice can show 'Advance paid ₹300' against a ₹143 advance due (on booking PRJ-3YB57793, where staff recorded extra cash). This is correct but may confuse customers; the label could read 'Paid towards booking'."
+  ],
+  "updated_files": ["/app/backend/tests/test_tracking_ratings_invoice.py", "/app/backend/tests/setup_ui_iter4.py", "/app/backend/tests/extra_iter4.py"],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "95% (all flows work; map tiles show watermark)"},
+  "seed_data_creation": "TEST_ bookings were created for the demo customer and driver: several completed, including 4eef2316-2574-4d9f-a53b-f793eb519aa2 (rated 4★ via UI) and a 2★ 'TEST_ late' review. Pickup-drop booking 7068d955-ab74-4999-8476-98d6802dee9a was left IN_PROGRESS (Bandra West → Powai) for destination-tracking checks. 6acad2db (PRJ-3YB57793) is still ACCEPTED.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run the pytest with '-n 0' (pytest.ini enables xdist and the tests are sequentially dependent). Demo phones hit the OTP 429 limit after 5 sends in 10 minutes: clear db.otp_requests, or log in once and inject the token into web localStorage as auth_token = JSON.stringify(token). Driver geolocation was tested with context.grant_permissions(['geolocation']) and set_geolocation.",
+  "rca_of_issue": "Map watermark: CARTO changed its policy on 2026-09-25 and now requires a 'key' query param for raster basemaps. Reproduce with curl https://c.basemaps.cartocdn.com/rastertiles/voyager/12/2876/1826.png, which returns a 2049-byte watermark PNG."
+}

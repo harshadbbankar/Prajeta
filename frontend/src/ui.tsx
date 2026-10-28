@@ -251,6 +251,7 @@ export function Chip({ label, selected, onPress, testID, icon }: { label: string
   return (
     <Pressable
       testID={testID}
+      hitSlop={4}
       onPress={() => {
         haptic();
         onPress?.();

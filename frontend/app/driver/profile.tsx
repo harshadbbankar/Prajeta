@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 
 import { api } from "@/src/api";
+import { MyRatings } from "@/src/components/MyRatings";
 import { space } from "@/src/theme";
 import { Btn, Card, Row, StatusBadge, Txt } from "@/src/ui";
 import { ProfileScreen } from "../customer/profile";
@@ -11,6 +12,8 @@ export default function DriverProfile() {
   return (
     <ProfileScreen
       extra={
+        <>
+        <MyRatings />
         <Card style={{ gap: space.sm }}>
           <Row style={{ justifyContent: "space-between" }}>
             <Txt v="h3">Driver application</Txt>
@@ -22,6 +25,7 @@ export default function DriverProfile() {
             <Btn small style={{ flex: 1 }} variant="outline" title="Support" testID="driver-support-button" onPress={() => router.push("/support")} />
           </Row>
         </Card>
+        </>
       }
     />
   );

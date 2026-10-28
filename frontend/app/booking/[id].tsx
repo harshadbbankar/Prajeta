@@ -7,12 +7,15 @@ import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BACKEND_URL, api, authedUrl } from "@/src/api";
+import { BACKEND_URL, api } from "@/src/api";
+import { LiveTracking } from "@/src/components/LiveTracking";
+import { downloadInvoice } from "@/src/invoice";
 import { TIME_SLOTS, fmtDate, fmtTime, nextDays, useConfig, usePolling } from "@/src/hooks";
 import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Chip, ChipRow, Divider, ErrorView, Field, Header, KV, Loader, Row, Sheet, StatusBadge, Txt, money, useToast } from "@/src/ui";
 
 const FLOW = ["AWAITING_ASSIGNMENT", "ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS", "COMPLETED"];
+const REVIEW_TAGS = ["Punctual", "Safe driving", "Polite", "Well dressed", "Knows routes", "Careful with car"];
 const FLOW_LABEL = ["Confirmed", "Driver assigned", "Driver arrived", "Trip started", "Completed"];
 
 export default function BookingDetail() {
@@ -26,6 +29,8 @@ export default function BookingDetail() {
   const [sheet, setSheet] = useState<"" | "cancel" | "reschedule" | "review" | "incident">("");
   const [text, setText] = useState("");
   const [rating, setRating] = useState(5);
+  const [tags, setTags] = useState<string[]>([]);
+  const [dl, setDl] = useState(false);
   const [rDate, setRDate] = useState(nextDays(1)[0].iso);
   const [rTime, setRTime] = useState("10:00");
   const [busy, setBusy] = useState(false);
@@ -146,6 +151,8 @@ export default function BookingDetail() {
           </Card>
         ) : null}
 
+        {["ACCEPTED", "DRIVER_ARRIVED", "IN_PROGRESS"].includes(b.status) ? <LiveTracking bookingId={b.id} /> : null}
+
         {b.driver ? (
           <Card testID="driver-card" style={{ gap: space.sm }}>
             <Row gap={space.md}>
@@ -193,6 +200,7 @@ export default function BookingDetail() {
             <KV k={`GST (${f.tax_rate}%)`} v={money(f.tax)} />
             <Divider />
             <KV k="Total" v={money(f.total)} bold />
+            <KV k={`Booking advance (${f.advance_percent ?? 20}%)`} v={money(f.advance)} testID="advance-row" />
             <KV k="Paid" v={money(b.amount_paid)} testID="amount-paid" />
             <KV k="Balance due" v={money(b.balance_due)} testID="balance-due" />
             {b.payments?.map((p: any) => (
@@ -205,7 +213,25 @@ export default function BookingDetail() {
             ))}
             {canPayBalance ? <Btn title={`Pay balance ${money(b.balance_due)}`} icon="card" loading={paying} onPress={pay} testID="pay-balance-button" style={{ marginTop: space.sm }} /> : null}
             {b.amount_paid ? (
-              <Btn small variant="outline" title={b.invoice_number ? `Invoice ${b.invoice_number}` : "View receipt"} icon="document-text" testID="view-invoice-button" style={{ marginTop: space.sm }} onPress={async () => WebBrowser.openBrowserAsync(await authedUrl(`/invoices/${b.id}`))} />
+              <Btn
+                small
+                variant="outline"
+                title={b.invoice_number ? `Download invoice ${b.invoice_number}` : "Download receipt"}
+                icon="download"
+                loading={dl}
+                testID="view-invoice-button"
+                style={{ marginTop: space.sm }}
+                onPress={async () => {
+                  setDl(true);
+                  try {
+                    await downloadInvoice(b.id, b.ref);
+                  } catch (e: any) {
+                    toast(e.message ?? "Could not create receipt", "err");
+                  } finally {
+                    setDl(false);
+                  }
+                }}
+              />
             ) : null}
           </Card>
         ) : null}
@@ -213,7 +239,8 @@ export default function BookingDetail() {
         {b.status === "COMPLETED" && !b.review ? <Btn title="Rate your driver" icon="star" variant="dark" onPress={() => setSheet("review")} testID="rate-driver-button" /> : null}
         {b.review ? (
           <Card tone="grey">
-            <Txt v="bodyBold">Your rating: {"★".repeat(b.review.rating)}</Txt>
+            <Txt v="bodyBold" testID="your-rating">Your rating: {"★".repeat(b.review.rating)}</Txt>
+            {b.review.tags?.length ? <Txt v="caption">{b.review.tags.join(" · ")}</Txt> : null}
             {b.review.comment ? <Txt v="caption">{b.review.comment}</Txt> : null}
           </Card>
         ) : null}
@@ -281,8 +308,13 @@ export default function BookingDetail() {
               </Pressable>
             ))}
           </Row>
+          <Row style={{ flexWrap: "wrap", justifyContent: "center" }}>
+            {REVIEW_TAGS.map((t) => (
+              <Chip key={t} label={t} selected={tags.includes(t)} onPress={() => setTags((x) => (x.includes(t) ? x.filter((y) => y !== t) : [...x, t]))} testID={`review-tag-${t.replace(/ /g, "-")}`} />
+            ))}
+          </Row>
           <Field placeholder="Tell us about your driver (optional)" multiline value={text} onChangeText={setText} testID="review-comment-input" />
-          <Btn title="Submit rating" loading={busy} onPress={() => act(`/bookings/${b.id}/review`, { rating, comment: text }, "Thanks for your feedback!")} testID="submit-review-button" />
+          <Btn title="Submit rating" loading={busy} onPress={() => act(`/bookings/${b.id}/review`, { rating, comment: text, tags }, "Thanks for your feedback!")} testID="submit-review-button" />
         </View>
       </Sheet>
       <Sheet visible={sheet === "incident"} onClose={() => setSheet("")} title="Report an issue" testID="incident-sheet">
