@@ -10,7 +10,7 @@ import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Header, Loader, Row, Txt, useToast } from "@/src/ui";
 
 const TEXT: [string, string][] = [["company_name", "Company name"], ["legal_name", "Legal entity"], ["tagline", "Hero headline"], ["support_phone", "Support phone"], ["support_email", "Support email"], ["whatsapp_link", "WhatsApp link"], ["business_hours", "Business hours"], ["address", "Address"]];
-const NUM: [string, string][] = [["tax_rate", "GST %"], ["advance_percent", "Advance to confirm %"], ["driver_share_percent", "Driver share %"], ["gateway_fee_percent", "Gateway fee %"], ["badge_bonus_top", "Top Rated bonus ₹/trip"], ["badge_bonus_gold", "Gold Star bonus ₹/trip"]];
+const NUM: [string, string][] = [["tax_rate", "GST %"], ["advance_percent", "Advance to confirm %"], ["driver_share_percent", "Driver share %"], ["gateway_fee_percent", "Gateway fee %"], ["badge_bonus_top", "Top Rated bonus ₹/trip"], ["badge_bonus_gold", "Gold Star bonus ₹/trip"], ["referral_friend_amount", "Friend saves ₹"], ["referral_referrer_amount", "Referrer earns ₹"]];
 
 export default function Settings() {
   const { colors } = useTheme();

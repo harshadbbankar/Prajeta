@@ -20,6 +20,12 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 9 (2026-06)
+- Referral rewards: each customer gets PRJxxxxx code (Profile + home card, WhatsApp share); friend enters it in coupon field for first booking (only if no other non-cancelled booking); referrer gets credit when friend's booking completes (driver or ops), auto-applied on next booking, restored if that unpaid booking is cancelled; amounts set in ERP settings (default 100/100). Promo cost absorbed by Prajeta (driver share unaffected).
+- Driver payout requests: driver chooses amount (min 100, max pending, one open request, needs UPI/bank); finance approves (reference prefilled → PAID payout) or rejects with reason in ERP Finance → Driver payouts.
+- Monthly driver statements: /api/driver/statements/YYYY-MM printable HTML/PDF (opening, fare share, adjustments, bonuses, payouts, closing).
+- Android push google-services.json still pending from user.
+
 ## Iteration 8 (2026-06)
 - Emergent Google sign-in for customers & drivers (POST /api/auth/session → app JWT); staff stay phone-only; Google users without phone must verify a mobile number (Profile → Add mobile number, OTP) before booking / driver application; users.phone & users.email unique only when set.
 - Emergent push notifications: /api/register-push, send_push relay mirrors every in-app notify() with tap deep links (customer /booking, driver /trip, staff /erp/booking); module-scope handlers + weekly settings nudge in app/_layout.tsx. Works only in deployed builds; google-services.json still to be supplied by user.

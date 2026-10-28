@@ -54,7 +54,7 @@ def is_night(time_str: str) -> bool:
 
 
 async def compute_fare(service: dict, city: dict, hours: float, days: int, time_str: str,
-                       coupon_code: Optional[str] = None) -> dict:
+                       coupon_code: Optional[str] = None, user: Optional[dict] = None) -> dict:
     """Server-side fare from the active tariff. Returns breakdown in paise or quote_required."""
     settings = await db.system_settings.find_one({"id": "main"}, {"_id": 0}) or {}
     tax_rate = settings.get("tax_rate", 18)
@@ -90,18 +90,31 @@ async def compute_fare(service: dict, city: dict, hours: float, days: int, time_
         base += adj
     discount = 0
     coupon_applied = None
+    referral = None
+    credit_used = 0
     if coupon_code:
         c = await db.coupons.find_one({"code": coupon_code.upper().strip(), "active": True}, {"_id": 0})
-        if not c:
-            raise HTTPException(400, "Invalid or expired coupon")
-        discount = min(int(base * c["percent"] / 100), c.get("max_discount", 10 ** 9))
-        coupon_applied = c["code"]
+        if c:
+            discount = min(int(base * c["percent"] / 100), c.get("max_discount", 10 ** 9))
+            coupon_applied = c["code"]
+        else:
+            from wallet_routes import referral_discount  # lazy: wallet_routes imports core only
+            referral = await referral_discount(coupon_code, user, base)
+            if not referral:
+                raise HTTPException(400, "Invalid or expired coupon")
+            discount = referral["discount"]
+            coupon_applied = coupon_code.upper().strip()
+    if user and user.get("referral_credit", 0) > 0 and base - discount > 0:
+        credit_used = min(user["referral_credit"], base - discount)
+        discount += credit_used
     taxable = base - discount
     tax = int(round(taxable * tax_rate / 100))
     total = taxable + tax
     advance = int(math.ceil(total * advance_pct / 100 / 100.0) * 100)  # rounded up to whole rupee
     return {
         "quote_required": False, "lines": lines, "subtotal": base, "discount": discount, "coupon": coupon_applied,
+        "referral": {"referrer_id": referral["referrer_id"], "label": referral["label"], "amount": referral["discount"]} if referral else None,
+        "credit_used": credit_used,
         "tax_rate": tax_rate, "tax": tax, "total": total, "advance_percent": advance_pct, "advance": advance,
         "hours": hrs, "tariff_version": service.get("tariff_version", 1),
         "cancellation_fee": service.get("cancellation_fee", 0), "extra_hour_rate": service.get("extra_hour_rate", 0),

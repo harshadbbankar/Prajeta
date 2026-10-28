@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { AddPhone } from "@/src/components/AddPhone";
+import { ReferralCard } from "@/src/components/ReferralCard";
 import { fmtDate, fmtTime, priceFrom, useConfig } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { fonts, radius, space, useTheme } from "@/src/theme";
@@ -101,6 +102,8 @@ export default function CustomerHome() {
             ))}
           </View>
         </View>
+
+        <ReferralCard compact />
 
         <Card tone="grey" style={{ gap: space.sm }}>
           <Txt v="h3">Monthly, permanent or corporate?</Txt>

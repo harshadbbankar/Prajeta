@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 9 (referral rewards, driver payout requests, monthly statements). Backend: new suite tests/test_referral_payout_statement.py passes 14/14 when run serially (-n 0). It covers /me/referral shape and stable code, the friend discount via a fresh OTP customer, own code 400, 'first booking' 400, unknown code 400, WELCOME10, the full friend booking→driver complete→referrer credit, notification and friends_completed flow, credit auto-applied and deducted on booking, credit restored on cancel, settings 0–5000 validation and ops 403, payout requests (min, max, duplicate, no UPI, ops 403, reject needs reason, approve creates a PAID driver_payouts entry, pending drops, notification, already-handled 400, 404), and statements (closing = opening + earnings − payouts = wallet pending; previous month closing = this month opening; future/bad month 400; customer 403; ?token= works). Frontend (390x844) passed: home and profile referral-card, book screen 'Referral from Ananya −₹100', driver Wallet payout request (Max, disabled under ₹100, submit, open state), statement chips and download in a new tab, ERP Finance payouts approve (reference prefilled, 'Confirm — money sent') and reject (reason required), ERP settings referral fields save and reject 6000. The code review found referral leaks (stacking, ops paths) — see issues. Regression: test_contacts_wallet_bonus + test_prajeta_api 30/32; the 2 failures are an older test-data flake ('Driver has a conflicting assignment': a fixed TOMORROW 11:00 slot clashes with leftover demo-driver jobs), not caused by iteration 9.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/bookings (referral code)", "issue": "A new customer can apply the same referral code to several bookings. Reproduced with tests/edge_iter9_referral_double.py: 2 bookings were both stored with referral rewarded:false. is_first_booking() ignores PAYMENT_PENDING bookings, so each booking gets the friend discount. reward_referrer is idempotent per booking, not per friend, so once both are paid and completed the referrer is rewarded twice. Fix: allow only one referral booking per friend that is not cancelled, and reward each friend only once.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/me/referral", "issue": "friends_joined counts bookings, not distinct friends: 1 friend with 2 bookings shows 2. Count distinct customer_id instead."},
+      {"endpoint": "POST /api/admin/bookings/{id}/status (COMPLETED)", "issue": "Completing a booking from ops never calls reward_referrer, so the referrer gets no reward (admin_routes.py set_status ~L384-414)."},
+      {"endpoint": "POST /api/admin/bookings/{id}/status (CANCELLED / NO_SHOW_CUSTOMER)", "issue": "An ops cancellation does not give back the customer's referral credit_used; only the customer cancel route (server.py:379) does."},
+      {"endpoint": "POST /api/bookings (driver_payout)", "issue": "driver_payout = (subtotal − discount) × share, and discount includes the referral friend discount and referrer credit. Drivers therefore pay 70% of the platform's referral promo. Needs a business decision."},
+      {"endpoint": "PUT /api/admin/settings", "issue": "Non-numeric referral amounts return 'Badge bonus must be a number' (wrong field name in the message)."},
+      {"endpoint": "GET /api/driver/statements/{month}?token=", "issue": "The web download puts the full long-lived access JWT in the URL (it leaks via browser history and logs). Use a short-lived download token."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Driver wallet payout request", "issue": "PayoutRequest returns null while loading or on API error, so the card silently disappears with no loading or error message (DriverWalletTools.tsx:19).", "affected_testIDs": ["payout-request-card"]},
+      {"flow": "Statement month chips", "issue": "Months come from device local time but the server checks against IST. A device ahead of IST on the 1st of a month offers a 'future' month, which returns 400 (DriverWalletTools.tsx:71-79).", "affected_testIDs": ["statement-month-YYYY-MM"]}
+    ],
+    "design_issues": [
+      {"screen": "ERP Settings", "issues": ["The 'Referral: referrer earns ₹' label wraps to 2 lines, so its input sits lower than the 'friend saves' input next to it."]},
+      {"screen": "Customer Home / Profile", "issues": ["The referral Share/More buttons are 40px tall (below 44).", "The home referral-card is not compact: it is the same ~230px card as on Profile, minus the stats."]},
+      {"screen": "ERP Finance payouts", "issues": ["After approve/reject the toast just says 'Saved'; something like 'Payout marked paid' / 'Request declined' would be clearer."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_referral_payout_statement.py", "/app/backend/tests/edge_iter9_referral_double.py", "/app/test_reports/pytest/pytest_iter9.xml"],
+  "action_items": [
+    "HIGH: Stop referral stacking. In compute_fare/create_booking, reject a referral code if the user already has a booking with a referral that is not cancelled. In reward_referrer, skip if a booking from the same friend was already rewarded.",
+    "friends_joined: count distinct customer_id.",
+    "Call reward_referrer in the admin set_status COMPLETED path; restore fare.credit_used on ops CANCELLED / NO_SHOW_CUSTOMER when amount_paid == 0.",
+    "Decide whether referral discount/credit should reduce driver_payout (currently it does).",
+    "Fix the settings validation message for referral fields.",
+    "PayoutRequest: show loading and error states instead of returning null.",
+    "Optional: build statement months in IST; use a short-lived statement download token; make Share buttons ≥44px; fix the settings label wrap."
+  ],
+  "critical_code_review_comments": [
+    "wallet_routes.py is clean, with atomic status guards on approve/reject (update_one with status REQUESTED) and on credit deduction ($gte guard).",
+    "referral_discount skips validation when there is no auth (public estimate). Fine, because booking create re-validates with the user.",
+    "Approve does not re-check that the driver's payout method still exists. Minor."
+  ],
+  "updated_files": ["/app/backend/tests/test_referral_payout_statement.py (new)", "/app/backend/tests/edge_iter9_referral_double.py (new)"],
+  "success_rate": {"backend": "100% (14/14 new; 30/32 regression, 2 pre-existing data flakes)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "None kept. TEST_Friend users and their bookings, UI-created payout requests/payouts and the settings change (120 back to 100) were all cleaned up or restored. Ananya's referral_credit/earned restored to 0.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "flaky_tests": ["test_prajeta_api.py::TestLifecycle::test_flow and test_admin_assign_and_status_reason: 'Driver has a conflicting assignment' from the fixed TOMORROW 11:00 slot clashing with leftover demo-driver jobs (old test-data issue)"],
+  "context_for_next_testing_agent": "Run tests/test_referral_payout_statement.py with -n 0. In parallel (xdist) the referral completion changes the driver's pending balance during the payout test. Fresh customers: /auth/otp/send returns dev_code for non-demo numbers. In RN web, page.fill on book-coupon-input does not trigger onChangeText; use click + keyboard.type. Server clock is Oct 2026."
+}

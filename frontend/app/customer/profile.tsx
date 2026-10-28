@@ -9,6 +9,7 @@ import { api } from "@/src/api";
 import { useAuth } from "@/src/auth";
 import { TrustedContacts } from "@/src/components/TrustedContacts";
 import { AddPhone } from "@/src/components/AddPhone";
+import { ReferralCard } from "@/src/components/ReferralCard";
 import { usesNativeTabs } from "@/src/navigation";
 import { space, useTheme } from "@/src/theme";
 import { Btn, Card, Field, Row, Txt, useToast } from "@/src/ui";
@@ -79,5 +80,5 @@ export function ProfileScreen({ extra }: { extra?: React.ReactNode }) {
 }
 
 export default function CustomerProfile() {
-  return <ProfileScreen extra={<TrustedContacts />} />;
+  return <ProfileScreen extra={<><ReferralCard /><TrustedContacts /></>} />;
 }

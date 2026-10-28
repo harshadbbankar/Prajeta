@@ -5,6 +5,7 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "@/src/api";
+import { PayoutRequest, Statements } from "@/src/components/DriverWalletTools";
 import { fmtDate } from "@/src/hooks";
 import { usesNativeTabs } from "@/src/navigation";
 import { radius, space, useTheme } from "@/src/theme";
@@ -38,6 +39,7 @@ export default function Earnings() {
               {e.payout_method ? `Paid to ${e.payout_method}` : "Add UPI or bank details in onboarding to receive payouts"}
             </Txt>
           </Card>
+          <PayoutRequest onDone={() => q.refetch()} />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
             <Stat label="Today" value={money(e.periods.today)} testID="earnings-today" />
             <Stat label="This week" value={money(e.periods.week)} testID="earnings-week" />
@@ -64,6 +66,7 @@ export default function Earnings() {
               Top Rated: {money(e.bonus_rates.top)}/trip · Gold Star: {money(e.bonus_rates.gold)}/trip. Bonus is added when you complete a trip while holding the badge.
             </Txt>
           </Card>
+          <Statements />
           <ChipRow>{TABS.map(([k, l]) => <Chip key={k} label={l} selected={tab === k} onPress={() => setTab(k)} testID={`wallet-tab-${k}`} />)}</ChipRow>
           {tab === "trips" ? (
             e.items.length ? (

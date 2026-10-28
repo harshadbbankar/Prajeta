@@ -176,6 +176,8 @@ async def act_sos(alert_id: str, body: SosAction, user: dict = Depends(require_r
 async def offer_wave_loop():
     await db.system_settings.update_one({"id": "main", "badge_bonus_top": {"$exists": False}},
                                         {"$set": {"badge_bonus_top": 50, "badge_bonus_gold": 100}})
+    await db.system_settings.update_one({"id": "main", "referral_friend_amount": {"$exists": False}},
+                                        {"$set": {"referral_friend_amount": 100, "referral_referrer_amount": 100}})
     # one active alert per booking + side (atomic duplicate protection)
     await db.sos_alerts.update_many({"status": "RESOLVED", "active": {"$exists": False}}, {"$set": {"active": False}})
     await db.sos_alerts.update_many({"status": {"$ne": "RESOLVED"}, "active": {"$exists": False}}, {"$set": {"active": True}})

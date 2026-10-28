@@ -18,6 +18,7 @@ export default function Finance() {
   const pays = useQuery({ queryKey: ["fin-pay"], queryFn: () => api<any[]>("/admin/payments"), enabled: tab === "payments" });
   const exp = useQuery({ queryKey: ["fin-exp"], queryFn: () => api<any>("/admin/expenses"), enabled: tab === "expenses" });
   const pout = useQuery({ queryKey: ["fin-pout"], queryFn: () => api<any>("/admin/payouts"), enabled: tab === "payouts" });
+  const reqs = useQuery({ queryKey: ["fin-reqs"], queryFn: () => api<any>("/admin/payout-requests"), enabled: tab === "payouts" });
   const [sheet, setSheet] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [text, setText] = useState("");
@@ -31,9 +32,11 @@ export default function Finance() {
       if (sheet.kind === "refund") await api(`/admin/payments/${sheet.id}/refund`, { body: { amount: paise, reason: text } });
       if (sheet.kind === "expense") await api("/admin/expenses", { body: { category: cat, amount: paise, date: todayISO(), note: text } });
       if (sheet.kind === "payout") await api("/admin/payouts", { body: { driver_id: sheet.driver_id, amount: paise, reference: text } });
-      toast("Saved");
+      if (sheet.kind === "approve") await api(`/admin/payout-requests/${sheet.id}`, { body: { action: "approve", reference: text } });
+      if (sheet.kind === "reject") await api(`/admin/payout-requests/${sheet.id}`, { body: { action: "reject", reason: text } });
+      toast(sheet.kind === "approve" ? "Payout approved — driver notified" : sheet.kind === "reject" ? "Request rejected — driver notified" : "Saved");
       close();
-      pays.refetch(); exp.refetch(); pout.refetch();
+      pays.refetch(); exp.refetch(); pout.refetch(); reqs.refetch();
     } catch (e: any) {
       toast(e.message, "err");
     } finally {
@@ -78,6 +81,21 @@ export default function Finance() {
           ) : null}
           {tab === "payouts" ? (
             <>
+              {(reqs.data?.items ?? []).length ? <Txt v="label">Payout requests ({reqs.data.open})</Txt> : null}
+              {(reqs.data?.items ?? []).map((r: any) => (
+                <Card key={r.id} testID={`payout-request-${r.id}`} style={{ padding: space.md, gap: 4, borderColor: colors.warning, borderWidth: 1.5 }}>
+                  <Row style={{ justifyContent: "space-between" }}>
+                    <Txt v="bodyBold">{r.driver_name}</Txt>
+                    <Txt v="num" color={colors.brandPrimary}>{money(r.amount)}</Txt>
+                  </Row>
+                  <Txt v="caption">Requested {fmtDate(r.created_at)} · to {r.payout_method} · pending balance {money(r.balance.pending)}</Txt>
+                  {r.amount > r.balance.pending ? <Txt v="caption" color={colors.error}>More than current pending balance</Txt> : null}
+                  <Row>
+                    <Btn small style={{ flex: 1 }} variant="ghost" title="Reject" onPress={() => setSheet({ kind: "reject", id: r.id })} testID={`reject-request-${r.id}`} />
+                    <Btn small style={{ flex: 1 }} variant="success" icon="checkmark" title="Approve & mark paid" disabled={r.amount > r.balance.pending} onPress={() => { setText(`UPI-${r.id.slice(0, 6).toUpperCase()}`); setSheet({ kind: "approve", id: r.id, amount: r.amount }); }} testID={`approve-request-${r.id}`} />
+                  </Row>
+                </Card>
+              ))}
               {(pout.data?.drivers ?? []).map((d: any) => (
                 <Card key={d.driver_id} testID={`payout-driver-${d.driver_id}`} style={{ padding: space.md, gap: 4 }}>
                   <Row style={{ justifyContent: "space-between" }}>
@@ -93,16 +111,16 @@ export default function Finance() {
           ) : null}
         </ScrollView>
       )}
-      <Sheet visible={!!sheet} onClose={close} title={sheet?.kind === "refund" ? "Refund payment" : sheet?.kind === "expense" ? "Add expense" : "Record payout"} testID="finance-sheet">
+      <Sheet visible={!!sheet} onClose={close} title={sheet?.kind === "refund" ? "Refund payment" : sheet?.kind === "expense" ? "Add expense" : sheet?.kind === "approve" ? `Approve ${money(sheet.amount)} payout` : sheet?.kind === "reject" ? "Reject payout request" : "Record payout"} testID="finance-sheet">
         <View style={{ gap: space.md }}>
           {sheet?.kind === "expense" ? (
             <View style={{ marginHorizontal: -space.lg }}>
               <ChipRow>{(exp.data?.categories ?? []).map((c: string) => <Chip key={c} label={c} selected={cat === c} onPress={() => setCat(c)} testID={`expense-cat-${c}`} />)}</ChipRow>
             </View>
           ) : null}
-          <Field label="Amount (₹)" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} testID="finance-amount-input" />
-          <Field label={sheet?.kind === "payout" ? "Transfer reference" : sheet?.kind === "refund" ? "Reason" : "Note"} value={text} onChangeText={setText} testID="finance-text-input" />
-          <Btn title="Save" loading={busy} disabled={!paise} onPress={submit} testID="finance-submit-button" />
+          {sheet?.kind === "approve" || sheet?.kind === "reject" ? null : <Field label="Amount (₹)" keyboardType="decimal-pad" value={amount} onChangeText={setAmount} testID="finance-amount-input" />}
+          <Field label={sheet?.kind === "payout" || sheet?.kind === "approve" ? "Transfer reference" : sheet?.kind === "refund" || sheet?.kind === "reject" ? "Reason" : "Note"} value={text} onChangeText={setText} testID="finance-text-input" />
+          <Btn title={sheet?.kind === "approve" ? "Confirm — money sent" : sheet?.kind === "reject" ? "Reject request" : "Save"} loading={busy} disabled={sheet?.kind === "approve" || sheet?.kind === "reject" ? !text.trim() : !paise} onPress={submit} testID="finance-submit-button" />
         </View>
       </Sheet>
     </View>

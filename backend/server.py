@@ -29,6 +29,7 @@ import staff_routes
 import tracking_routes
 import sos_routes
 import google_push_routes
+import wallet_routes
 import asyncio
 from licence import licence_loop
 
@@ -218,9 +219,18 @@ async def load_service_city(service_id: str, city_id: str):
 
 
 @api.post("/public/fare-estimate")
-async def fare_estimate(body: FareIn):
+async def fare_estimate(body: FareIn, request: Request):
     s, c = await load_service_city(body.service_id, body.city_id)
-    return await compute_fare(s, c, body.hours, body.days, body.time, body.coupon)
+    user = None
+    auth = request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        try:
+            user = await get_current_user(request)
+        except HTTPException:
+            user = None
+    if user and user.get("role") not in ("customer", "corporate"):
+        user = None
+    return await compute_fare(s, c, body.hours, body.days, body.time, body.coupon, user)
 
 
 class EnquiryIn(BaseModel):
@@ -294,10 +304,17 @@ async def create_booking(body: BookingIn, user: dict = Depends(require_customer)
     s, c = await load_service_city(body.service_id, body.city_id)
     if body.date < now().date().isoformat():
         raise HTTPException(400, "Choose today or a future date")
-    fare = await compute_fare(s, c, body.hours, body.days, body.time, body.coupon)
+    fare = await compute_fare(s, c, body.hours, body.days, body.time, body.coupon, user)
     quote = fare.get("quote_required")
+    if fare.get("credit_used"):
+        ok = await db.users.update_one({"id": user["id"], "referral_credit": {"$gte": fare["credit_used"]}},
+                                       {"$inc": {"referral_credit": -fare["credit_used"]}})
+        if not ok.modified_count:
+            raise HTTPException(409, "Your referral credit changed — please review the fare and try again")
     status = "QUOTE_REQUESTED" if quote else "PAYMENT_PENDING"
-    driver_payout = 0 if quote else int((fare["subtotal"] - fare["discount"]) * settings.get("driver_share_percent", 70) / 100)
+    # Promo cost (referral discount + referral credit) is absorbed by Prajeta, not the driver
+    promo = ((fare.get("referral") or {}).get("amount") or 0) + (fare.get("credit_used") or 0) if not quote else 0
+    driver_payout = 0 if quote else int((fare["subtotal"] - fare["discount"] + promo) * settings.get("driver_share_percent", 70) / 100)
     if body.contact_name and not user.get("name"):
         await db.users.update_one({"id": user["id"]}, {"$set": {"name": body.contact_name}})
         user["name"] = body.contact_name
@@ -310,7 +327,8 @@ async def create_booking(body: BookingIn, user: dict = Depends(require_customer)
          "status": status, "payment_status": "PENDING", "amount_paid": 0,
          "balance_due": 0 if quote else fare["total"], "driver_id": None, "offered_driver_id": None,
          "idempotency_key": body.idempotency_key, "created_at": now_iso(), "updated_at": now_iso(),
-         "source": user.get("source", "app")}
+         "source": user.get("source", "app"),
+         "referral": {"referrer_id": fare["referral"]["referrer_id"], "code": fare.get("coupon"), "rewarded": False} if fare.get("referral") else None}
     await db.bookings.insert_one(dict(b))
     await add_event(b["id"], "REQUESTED", user)
     if quote:
@@ -360,6 +378,10 @@ async def cancel_booking(booking_id: str, body: CancelIn, user: dict = Depends(r
                                                              "cancelled_by": "customer", "cancelled_at": now_iso()}})
     await db.booking_assignments.update_many({"booking_id": booking_id, "status": "OFFERED"}, {"$set": {"status": "WITHDRAWN"}})
     await add_event(booking_id, "CANCELLED", user, body.reason)
+    credit = (b.get("fare") or {}).get("credit_used") or 0
+    if credit and not b.get("amount_paid") and not b.get("credit_restored"):  # unused booking — give the referral credit back
+        await db.users.update_one({"id": user["id"]}, {"$inc": {"referral_credit": credit}})
+        await db.bookings.update_one({"id": booking_id}, {"$set": {"credit_restored": True}})
     if b.get("driver_id"):
         await notify(b["driver_id"], "Booking cancelled", f"{b['ref']} was cancelled by the customer.", booking_id)
     if b.get("amount_paid"):
@@ -578,7 +600,7 @@ async def invoice_html(b: dict, s: dict) -> str:
     due = b.get("balance_due", 0)
     rows = "".join(f"<tr><td>{esc(l['label'])}</td><td class=r>{rupees(l['amount'])}</td></tr>" for l in f.get("lines", []))
     if f.get("discount"):
-        rows += f"<tr><td>Discount</td><td class=r>-{rupees(f['discount'])}</td></tr>"
+        rows += f"<tr><td>{'Discount' if not f.get('credit_used') else 'Discount incl. referral credit'}</td><td class=r>-{rupees(f['discount'])}</td></tr>"
     pay_rows = "".join(f"<tr><td>{esc(p['kind']).title()} · {esc(p['method'])}<br><small>{esc((p.get('paid_at') or '')[:10])}"
                        f"{' · ' + esc(p['razorpay_payment_id']) if p.get('razorpay_payment_id') else ''}</small></td>"
                        f"<td class=r>{rupees(p['amount'])}</td></tr>" for p in pays) or "<tr><td>No payments yet</td><td></td></tr>"
@@ -702,6 +724,7 @@ app.include_router(staff_routes.router)
 app.include_router(tracking_routes.router)
 app.include_router(sos_routes.router)
 app.include_router(google_push_routes.router)
+app.include_router(wallet_routes.router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

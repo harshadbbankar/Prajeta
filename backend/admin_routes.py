@@ -408,6 +408,13 @@ async def set_status(bid: str, body: StatusIn, user: dict = Depends(OPS)):
         await db.booking_assignments.update_many({"booking_id": bid, "status": "OFFERED"}, {"$set": {"status": "WITHDRAWN"}})
     await add_event(bid, body.status, user, body.reason)
     await audit(user, "booking_status", "booking", bid, {"from": b["status"], "to": body.status, "reason": body.reason})
+    if upd.get("status") == "COMPLETED":
+        from wallet_routes import reward_referrer
+        await reward_referrer(b)
+    credit = (b.get("fare") or {}).get("credit_used") or 0
+    if upd.get("status") == "CANCELLED" and credit and not b.get("amount_paid") and not b.get("credit_restored"):
+        await db.users.update_one({"id": b["customer_id"]}, {"$inc": {"referral_credit": credit}})
+        await db.bookings.update_one({"id": bid}, {"$set": {"credit_restored": True}})
     if body.status == "NO_SHOW_DRIVER":
         nb = await db.bookings.find_one({"id": bid}, {"_id": 0})
         await broadcast_offers(nb)
@@ -548,18 +555,19 @@ async def settings_get(user: dict = Depends(ANY_STAFF)):
 async def settings_put(body: dict, user: dict = Depends(SUPER)):
     allowed = {"company_name", "legal_name", "tagline", "support_phone", "support_email", "whatsapp_link",
                "business_hours", "address", "tax_rate", "advance_percent", "driver_share_percent", "gateway_fee_percent",
-               "cash_enabled", "bookings_enabled", "badge_bonus_top", "badge_bonus_gold"}
+               "cash_enabled", "bookings_enabled", "badge_bonus_top", "badge_bonus_gold",
+               "referral_friend_amount", "referral_referrer_amount"}
     data = {k: v for k, v in body.items() if k in allowed}
-    for k in ("badge_bonus_top", "badge_bonus_gold"):
+    for k in ("badge_bonus_top", "badge_bonus_gold", "referral_friend_amount", "referral_referrer_amount"):
         if k in data:
             if isinstance(data[k], bool) or data[k] in ("", None):
-                raise HTTPException(400, "Badge bonus must be a number")
+                raise HTTPException(400, "Bonus and referral amounts must be numbers")
             try:
                 data[k] = float(data[k])
             except (TypeError, ValueError):
-                raise HTTPException(400, "Badge bonus must be a number")
+                raise HTTPException(400, "Bonus and referral amounts must be numbers")
             if not 0 <= data[k] <= 5000:
-                raise HTTPException(400, "Badge bonus must be between ₹0 and ₹5,000 per trip")
+                raise HTTPException(400, "Bonus and referral amounts must be between ₹0 and ₹5,000")
     await db.system_settings.update_one({"id": "main"}, {"$set": data})
     await audit(user, "settings_update", "system_settings", "main", data)
     return await get_settings()

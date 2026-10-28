@@ -175,7 +175,14 @@ export default function BookWizard() {
                 {f.lines.map((l: any) => (
                   <KV key={l.label} k={l.label} v={money(l.amount)} />
                 ))}
-                {f.discount ? <KV k={`Coupon ${f.coupon}`} v={`-${money(f.discount)}`} /> : null}
+                {f.discount ? (
+                  <KV
+                    k={f.referral ? f.referral.label : f.coupon ? `Coupon ${f.coupon}` : "Referral reward credit"}
+                    v={`-${money(f.discount - (f.coupon ? f.credit_used || 0 : 0))}`}
+                    testID="fare-discount"
+                  />
+                ) : null}
+                {f.coupon && f.credit_used ? <KV k="Referral reward credit" v={`-${money(f.credit_used)}`} testID="fare-credit" /> : null}
                 <KV k={`GST (${f.tax_rate}%)`} v={money(f.tax)} />
                 <Divider />
                 <KV k="Estimated total" v={money(f.total)} bold testID="fare-total" />

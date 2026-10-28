@@ -298,6 +298,8 @@ async def complete(booking_id: str, body: CompleteIn, user: dict = Depends(requi
                                       "created_at": now_iso(), "paid_at": now_iso()})
         await recompute_payment_status(booking_id)
     await notify(b["customer_id"], "Trip completed", f"Thank you for riding with Prajeta. Please rate your driver for {b['ref']}.", b["id"])
+    from wallet_routes import reward_referrer
+    await reward_referrer(b)
     return await booking_brief(await db.bookings.find_one({"id": booking_id}, {"_id": 0}), full=True)
 
 
