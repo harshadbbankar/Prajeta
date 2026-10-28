@@ -82,6 +82,70 @@ async def my_referral(user: dict = Depends(require_customer)):
             "friends_completed": len({b["customer_id"] for b in referred if b["referral"].get("rewarded")})}
 
 
+# ===================================================================== REFERRAL LEADERBOARD (ERP)
+REF_ADMIN = require_roles("owner", "super_admin", "finance", "ops")
+
+
+@router.get("/admin/referrals")
+async def referral_leaderboard(period: str = "all", user: dict = Depends(REF_ADMIN)):
+    from core import period_range
+    q = {"referral.referrer_id": {"$exists": True, "$ne": None}, "status": {"$ne": "CANCELLED"}}
+    if period != "all":
+        s_, e_, _, _ = period_range(period)
+        q["created_at"] = {"$gte": s_.isoformat(), "$lt": e_.isoformat()}
+    stats: dict = {}
+    recent = []
+    async for b in db.bookings.find(q, {"_id": 0}).sort("created_at", -1):
+        rid = b["referral"]["referrer_id"]
+        r = stats.setdefault(rid, {"friends": set(), "completed": set(), "revenue": 0, "last": b["created_at"]})
+        r["friends"].add(b["customer_id"])
+        if b["status"] == "COMPLETED":
+            r["completed"].add(b["customer_id"])
+            r["revenue"] += (b.get("fare") or {}).get("total", 0)
+        if len(recent) < 15:
+            recent.append({"booking_id": b["id"], "ref": b["ref"], "friend_name": b.get("customer_name"), "referrer_id": rid,
+                           "status": b["status"], "created_at": b["created_at"], "rewarded": b["referral"].get("rewarded", False)})
+    users = {u["id"]: u async for u in db.users.find({"id": {"$in": list(stats)}}, {"_id": 0, "id": 1, "name": 1, "phone": 1,
+                                                                                   "referral_code": 1, "referral_credit": 1, "referral_earned": 1,
+                                                                                   "referral_bonus_given": 1})}
+    rows = []
+    for rid, r in stats.items():
+        u = users.get(rid, {})
+        rows.append({"user_id": rid, "name": u.get("name") or "Customer", "phone": u.get("phone"), "code": u.get("referral_code"),
+                     "friends_joined": len(r["friends"]), "friends_completed": len(r["completed"]),
+                     "referred_revenue": r["revenue"], "credit_earned": u.get("referral_earned", 0),
+                     "credit_available": u.get("referral_credit", 0), "bonus_given": u.get("referral_bonus_given", 0),
+                     "last_referral_at": r["last"]})
+    rows.sort(key=lambda x: (-x["friends_completed"], -x["friends_joined"], -x["referred_revenue"]))
+    names = {rid: users.get(rid, {}).get("name") for rid in stats}
+    for x in recent:
+        x["referrer_name"] = names.get(x["referrer_id"]) or "Customer"
+    return {"referrers": rows, "recent": recent,
+            "totals": {"referrers": len(rows), "friends_joined": sum(x["friends_joined"] for x in rows),
+                       "friends_completed": sum(x["friends_completed"] for x in rows),
+                       "referred_revenue": sum(x["referred_revenue"] for x in rows)}}
+
+
+class BonusIn(BaseModel):
+    amount: int  # paise
+    note: str = ""
+
+
+@router.post("/admin/referrals/{user_id}/reward")
+async def give_referral_bonus(user_id: str, body: BonusIn, user: dict = Depends(require_roles("owner", "super_admin", "finance"))):
+    if not 100 <= body.amount <= 500000:
+        raise HTTPException(400, "Thank-you credit must be between ₹1 and ₹5,000")
+    u = await db.users.find_one({"id": user_id, "role": {"$in": ["customer", "corporate"]}}, {"_id": 0, "id": 1, "name": 1})
+    if not u:
+        raise HTTPException(404, "Customer not found")
+    await db.users.update_one({"id": user_id}, {"$inc": {"referral_credit": body.amount, "referral_bonus_given": body.amount}})
+    await audit(user, "referral_bonus", "user", user_id, {"amount": body.amount, "note": body.note})
+    await notify(user_id, "A thank-you from Prajeta 🎁",
+                 f"{rupees(body.amount)} credit added for referring friends. {body.note.strip()[:150]}".strip()
+                 + " It applies automatically on your next booking.")
+    return {"ok": True}
+
+
 # ===================================================================== PAYOUT REQUESTS
 async def driver_balance(driver_id: str) -> dict:
     earned = 0

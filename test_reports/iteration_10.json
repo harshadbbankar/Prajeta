@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 10 — ERP Referral Leaderboard. Backend: 25/25 pytest pass (tests/test_referral_leaderboard.py). It checks GET /api/admin/referrals access (owner/finance/ops 200; customer/driver 403; no token 401/403), per-row data (friends_joined leaves out cancelled bookings, friends_completed, referred_revenue = fare.total of the completed booking, credit_earned/available, bonus_given, last_referral_at), the recent list (cancelled bookings left out, rewarded flag, referrer_name, newest first), totals, the sort order, and the 30d/month/quarter/bogus periods. It also checks POST /reward: 400 outside 100–500000 paise, ops/customer/driver 403, driver id or unknown id 404, missing amount 422, owner and finance both persist referral_credit and referral_bonus_given (referral_earned unchanged), a notification is sent with the note, an audit log is written, and the credit is applied on the customer's next fare estimate. Frontend (375x667) works end to end. More shows 'Referral leaderboard' to owner and finance and hides it from ops. The stats, the referrer-0 card (trophy, completed count, the 4 tiles) and the recent list all render. All four period chips work. 'Say thanks' opens wa.me/919000000003 in a new tab with the text filled in. The reward sheet's amount chips (100/200/500) fill the amount input. An empty amount disables submit. ₹6000 shows the backend error toast and the sheet stays open. ₹150 with a note shows the success toast, closes the sheet and updates Earned/Unused credit to ₹250. Ops can open the page by direct URL but sees no Give credit button. The empty state shows after cleanup. All TEST data was cleaned up and Ananya's credit was reset to 0/0/0.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/referrals", "issue": "An unknown period (e.g. 'bogus') silently falls back to all-time instead of returning 400. Harmless."},
+      {"endpoint": "GET /api/admin/referrals", "issue": "Reads every referred booking on each call (no limit or aggregation). Fine at current scale; consider a $group aggregation later."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Say thanks WhatsApp text", "issue": "The 🙏 emoji arrives as U+FFFD (�) after the wa.me → api.whatsapp.com redirect (seen in the popup URL as %EF%BF%BD). The source and encodeURIComponent are correct; the redirect is what breaks it. Fix by linking to https://api.whatsapp.com/send?phone=...&text=... directly or dropping the emoji. Reference: /app/frontend/src/whatsapp.ts:9", "testID": "referrer-thank-0", "priority": "low"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/erp/referrals", "issues": [
+        "Period chips are 36px tall, below the 44px touch target",
+        "The per-referrer tiles wrap 3 + 1 at 375px, leaving 'Unused credit' alone at full width on a second row. Consider a 2x2 grid",
+        "A customer opening /erp/referrals by deep link sees a generic 'Something went wrong / You do not have permission' error view instead of a redirect (no role guard on the ERP route)",
+        "Ops can open the page by URL (the backend allows it) but the More menu hides the item from ops. Make visibility consistent if ops should see it"
+      ]}
+    ],
+    "react_native_issues": [
+      {"component": "expo-router/unstable-native-tabs", "issue": "Console warns that `expo-router/unstable-native-tabs` is deprecated; use `expo-router/native-tabs`. Reference: /app/frontend/src/components/RoleTabs.tsx"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_referral_leaderboard.py", "/app/backend/tests/setup_ui_iter10.py", "/app/test_reports/pytest/pytest_iter10.xml"],
+  "action_items": [
+    "(Low) Change the import in src/components/RoleTabs.tsx from expo-router/unstable-native-tabs to expo-router/native-tabs",
+    "(Low) Fix the emoji in the WhatsApp thank-you text: link to api.whatsapp.com/send directly or remove the emoji",
+    "(Low) Make period chips at least 44px tall; use a 2x2 grid for the referrer tiles",
+    "(Low) Optional: return 400 for an invalid period; add an ERP role guard so customers who deep-link are redirected"
+  ],
+  "critical_code_review_comments": [
+    "wallet_routes.py: the reward amount is a strict int in paise and bounds-checked; role checks are correct (GET also allows ops, POST does not); the audit log and notification are written; _id is excluded.",
+    "referrals.tsx: loading, error and empty states are handled; the Give credit button is gated by role on the client and the server; amount is converted with Math.round(Number*100); the reward query refetches after success."
+  ],
+  "updated_files": ["/app/backend/tests/test_referral_leaderboard.py (new)", "/app/backend/tests/setup_ui_iter10.py (new)"],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Temporary TEST_Friend*/TEST_UIFriend* customers with referred bookings (one completed by the demo driver). All deleted afterwards; Ananya's referral_credit/earned/bonus_given reset to 0, and referral notifications and audit rows removed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend/pytest.ini enables xdist (-n). Run with `-n 0` or module fixtures (OTP cleanup) will race across workers. Set EXPO_BACKEND_URL=<EXPO_PUBLIC_BACKEND_URL> when running. `python tests/setup_ui_iter10.py setup|cleanup` seeds and removes leaderboard data for UI checks. Server clock reads Oct 2026.",
+  "rca_of_issue": ""
+}

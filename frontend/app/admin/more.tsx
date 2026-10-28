@@ -13,6 +13,7 @@ const ITEMS: [string, string, string, string, string][] = [
   ["calculator", "Pricing simulator", "Model price, payout & volume scenarios", "/erp/simulator", "owner"],
   ["checkbox", "Action plan", "Owner task register", "/erp/actions", "owner"],
   ["cash", "Finance", "Payments, refunds, expenses, driver payouts", "/erp/finance", "finance"],
+  ["gift", "Referral leaderboard", "Top referring customers — thank & reward them", "/erp/referrals", "finance"],
   ["pricetags", "Tariffs & cities", "Service pricing, service areas", "/erp/tariffs", "admin"],
   ["chatbubbles", "Support tickets", "Customer & driver tickets, incidents", "/erp/tickets", "support"],
   ["business", "Enquiries & corporate", "Corporate, monthly & permanent leads", "/erp/enquiries", "support"],

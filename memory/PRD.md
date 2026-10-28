@@ -20,6 +20,10 @@ User choices: name Prajeta · phone login via WhatsApp OTP · Razorpay test mode
 - Owner intelligence: KPIs vs previous period, P&L, service & city profitability, rule-based insights, action plan, pricing simulator, CSV export, data-quality warnings, KPI definitions.
 - Synthetic demo history seeded (flagged is_demo).
 
+## Iteration 10 (2026-06)
+- ERP Referral leaderboard (/erp/referrals, More → Referral leaderboard; owner/finance in menu, ops read-only via API): top referrers by completed friends, revenue, credit; recent referred bookings; Say thanks on WhatsApp; Give thank-you credit (owner/finance, audit + notification).
+- Android push google-services.json still not provided (user skipped twice).
+
 ## Iteration 9 (2026-06)
 - Referral rewards: each customer gets PRJxxxxx code (Profile + home card, WhatsApp share); friend enters it in coupon field for first booking (only if no other non-cancelled booking); referrer gets credit when friend's booking completes (driver or ops), auto-applied on next booking, restored if that unpaid booking is cancelled; amounts set in ERP settings (default 100/100). Promo cost absorbed by Prajeta (driver share unaffected).
 - Driver payout requests: driver chooses amount (min 100, max pending, one open request, needs UPI/bank); finance approves (reference prefilled → PAID payout) or rejects with reason in ERP Finance → Driver payouts.

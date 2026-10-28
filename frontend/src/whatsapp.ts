@@ -6,7 +6,7 @@ import { BACKEND_URL } from "@/src/api";
 /** Open WhatsApp with a pre-filled message, optionally to a specific +91 number. */
 export async function openWhatsApp(text: string, phone?: string) {
   const to = phone ? phone.replace(/\D/g, "") : "";
-  const url = `https://wa.me/${to}?text=${encodeURIComponent(text)}`;
+  const url = `https://api.whatsapp.com/send?${to ? `phone=${to}&` : ""}text=${encodeURIComponent(text)}`;
   if (Platform.OS === "web" && typeof window !== "undefined") window.open(url, "_blank", "noopener");
   else await Linking.openURL(url);
 }
